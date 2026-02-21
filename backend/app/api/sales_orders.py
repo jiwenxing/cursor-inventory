@@ -27,7 +27,7 @@ def calculate_order_amounts(items_data):
 
 @router.get("/", response_model=List[SalesOrderResponse])
 def get_sales_orders(skip: int = 0, limit: int = 100, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    orders = db.query(SalesOrder).offset(skip).limit(limit).order_by(SalesOrder.order_date.desc()).all()
+    orders = db.query(SalesOrder).order_by(SalesOrder.order_date.desc()).offset(skip).limit(limit).all()
     result = []
     for order in orders:
         order_dict = {
@@ -97,11 +97,11 @@ def create_sales_order(order: SalesOrderCreate, db: Session = Depends(get_db), c
     customer = db.query(Customer).filter(Customer.id == order.customer_id).first()
     if not customer:
         raise HTTPException(status_code=404, detail="客户不存在")
-    
+
     # 计算金额
     items_data = [item.dict() for item in order.items]
     calculated_items, total_amount = calculate_order_amounts(items_data)
-    
+
     # 创建订单
     db_order = SalesOrder(
         order_date=order.order_date,
@@ -113,13 +113,13 @@ def create_sales_order(order: SalesOrderCreate, db: Session = Depends(get_db), c
     )
     db.add(db_order)
     db.flush()
-    
+
     # 创建订单明细并生成库存流水
     for item_data in calculated_items:
         product = db.query(Product).filter(Product.id == item_data["product_id"]).first()
         if not product:
             raise HTTPException(status_code=404, detail=f"商品ID {item_data['product_id']} 不存在")
-        
+
         db_item = SalesOrderItem(
             order_id=db_order.id,
             product_id=item_data["product_id"],
@@ -132,7 +132,7 @@ def create_sales_order(order: SalesOrderCreate, db: Session = Depends(get_db), c
             unshipped_quantity=item_data["unshipped_quantity"]
         )
         db.add(db_item)
-        
+
         # 生成库存OUT流水
         inventory_record = InventoryRecord(
             product_id=item_data["product_id"],
@@ -141,7 +141,7 @@ def create_sales_order(order: SalesOrderCreate, db: Session = Depends(get_db), c
             related_order_id=db_order.id
         )
         db.add(inventory_record)
-        
+
         # 更新库存汇总
         summary = db.query(InventorySummary).filter(InventorySummary.product_id == item_data["product_id"]).first()
         if summary:
@@ -149,7 +149,7 @@ def create_sales_order(order: SalesOrderCreate, db: Session = Depends(get_db), c
         else:
             summary = InventorySummary(product_id=item_data["product_id"], current_stock=-item_data["quantity"])
             db.add(summary)
-    
+
     db.commit()
     db.refresh(db_order)
     return get_sales_order(db_order.id, db, current_user)
@@ -159,7 +159,7 @@ def update_sales_order(order_id: int, order: SalesOrderCreate, db: Session = Dep
     db_order = db.query(SalesOrder).filter(SalesOrder.id == order_id).first()
     if not db_order:
         raise HTTPException(status_code=404, detail="订单不存在")
-    
+
     # 回滚之前的库存流水
     for item in db_order.items:
         # 回滚库存
@@ -172,29 +172,29 @@ def update_sales_order(order_id: int, order: SalesOrderCreate, db: Session = Dep
             InventoryRecord.product_id == item.product_id,
             InventoryRecord.type == "OUT"
         ).delete()
-    
+
     # 删除旧明细
     db.query(SalesOrderItem).filter(SalesOrderItem.order_id == order_id).delete()
-    
+
     # 更新订单基本信息
     db_order.order_date = order.order_date
     db_order.customer_id = order.customer_id
     db_order.contract_amount = order.contract_amount
     db_order.payment_status = order.payment_status
-    
+
     # 重新计算金额并创建明细
     items_data = [item.dict() for item in order.items]
     calculated_items, total_amount = calculate_order_amounts(items_data)
     db_order.total_amount = total_amount
-    
+
     db.flush()
-    
+
     # 创建新明细
     for item_data in calculated_items:
         product = db.query(Product).filter(Product.id == item_data["product_id"]).first()
         if not product:
             raise HTTPException(status_code=404, detail=f"商品ID {item_data['product_id']} 不存在")
-        
+
         db_item = SalesOrderItem(
             order_id=db_order.id,
             product_id=item_data["product_id"],
@@ -207,7 +207,7 @@ def update_sales_order(order_id: int, order: SalesOrderCreate, db: Session = Dep
             unshipped_quantity=item_data["unshipped_quantity"]
         )
         db.add(db_item)
-        
+
         # 生成库存OUT流水
         inventory_record = InventoryRecord(
             product_id=item_data["product_id"],
@@ -216,7 +216,7 @@ def update_sales_order(order_id: int, order: SalesOrderCreate, db: Session = Dep
             related_order_id=db_order.id
         )
         db.add(inventory_record)
-        
+
         # 更新库存汇总
         summary = db.query(InventorySummary).filter(InventorySummary.product_id == item_data["product_id"]).first()
         if summary:
@@ -224,7 +224,7 @@ def update_sales_order(order_id: int, order: SalesOrderCreate, db: Session = Dep
         else:
             summary = InventorySummary(product_id=item_data["product_id"], current_stock=-item_data["quantity"])
             db.add(summary)
-    
+
     db.commit()
     db.refresh(db_order)
     return get_sales_order(db_order.id, db, current_user)
@@ -234,16 +234,16 @@ def delete_sales_order(order_id: int, db: Session = Depends(get_db), current_use
     db_order = db.query(SalesOrder).filter(SalesOrder.id == order_id).first()
     if not db_order:
         raise HTTPException(status_code=404, detail="订单不存在")
-    
+
     # 回滚库存
     for item in db_order.items:
         summary = db.query(InventorySummary).filter(InventorySummary.product_id == item.product_id).first()
         if summary:
             summary.current_stock += item.quantity
-    
+
     # 删除库存流水
     db.query(InventoryRecord).filter(InventoryRecord.related_order_id == order_id).delete()
-    
+
     # 删除订单（级联删除明细）
     db.delete(db_order)
     db.commit()

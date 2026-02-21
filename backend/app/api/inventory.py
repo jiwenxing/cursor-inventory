@@ -24,7 +24,7 @@ def get_inventory_summary(db: Session = Depends(get_db), current_user: User = De
 
 @router.get("/records", response_model=List[InventoryRecordResponse])
 def get_inventory_records(skip: int = 0, limit: int = 100, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    records = db.query(InventoryRecord).offset(skip).limit(limit).order_by(InventoryRecord.created_at.desc()).all()
+    records = db.query(InventoryRecord).order_by(InventoryRecord.created_at.desc()).offset(skip).limit(limit).all()
     result = []
     for record in records:
         result.append({

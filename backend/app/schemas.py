@@ -114,9 +114,9 @@ class SalesOrderResponse(BaseModel):
     customer_name: Optional[str] = None
     salesperson_id: int
     salesperson_name: Optional[str] = None
-    contract_amount: float
+    contract_amount: Optional[float] = 0.0
     payment_status: str
-    total_amount: float
+    total_amount: Optional[float] = 0.0
     created_at: datetime
     items: List[SalesOrderItemResponse] = []
     

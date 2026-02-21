@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from sqlalchemy import func, and_
+from sqlalchemy import func, and_, case
 from typing import List, Optional
 from datetime import datetime
 from app.database import get_db
@@ -78,7 +78,7 @@ def get_receivables(db: Session = Depends(get_db), current_user: User = Depends(
         Customer.id,
         Customer.name,
         func.sum(
-            func.case(
+            case(
                 (SalesOrder.payment_status == "未付款", SalesOrder.total_amount),
                 (SalesOrder.payment_status == "部分付款", SalesOrder.total_amount * 0.5),
                 else_=0
@@ -87,7 +87,7 @@ def get_receivables(db: Session = Depends(get_db), current_user: User = Depends(
     ).join(SalesOrder, SalesOrder.customer_id == Customer.id)\
      .group_by(Customer.id, Customer.name)\
      .having(func.sum(
-         func.case(
+         case(
              (SalesOrder.payment_status == "未付款", SalesOrder.total_amount),
              (SalesOrder.payment_status == "部分付款", SalesOrder.total_amount * 0.5),
              else_=0

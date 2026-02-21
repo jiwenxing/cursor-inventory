@@ -1,29 +1,58 @@
 <template>
-  <div>
+  <div class="sales-orders-container">
     <div class="header">
       <h2>销售订单</h2>
       <el-button type="primary" @click="handleAdd">新增订单</el-button>
     </div>
-    
-    <el-table :data="orders" style="width: 100%" v-loading="loading">
-      <el-table-column prop="id" label="订单号" width="100" />
-      <el-table-column prop="order_date" label="订单日期" width="120">
+
+    <el-table :data="orders" style="width: 100%; table-layout: fixed;" v-loading="loading" row-key="id">
+      <el-table-column type="expand" width="50">
+        <template #default="{ row }">
+          <div style="padding: 20px;">
+            <h4 style="margin-bottom: 15px;">订单明细</h4>
+            <el-table :data="row.items" style="width: 100%" :show-header="true" size="small">
+              <el-table-column prop="product_name" label="商品" show-overflow-tooltip />
+              <el-table-column prop="product_model" label="型号" width="100" />
+              <el-table-column prop="quantity" label="数量" width="70" />
+              <el-table-column prop="unit_price_tax" label="单价(含税)" width="90">
+                <template #default="{ row }">
+                  ¥{{ row.unit_price_tax?.toFixed(2) }}
+                </template>
+              </el-table-column>
+              <el-table-column prop="discount_rate" label="折扣" width="70">
+                <template #default="{ row }">
+                  {{ (row.discount_rate * 100).toFixed(0) }}%
+                </template>
+              </el-table-column>
+              <el-table-column prop="line_total" label="行金额" width="90">
+                <template #default="{ row }">
+                  ¥{{ row.line_total?.toFixed(2) }}
+                </template>
+              </el-table-column>
+              <el-table-column prop="shipped_quantity" label="已发货" width="70" />
+              <el-table-column prop="unshipped_quantity" label="未发货" width="70" />
+            </el-table>
+          </div>
+        </template>
+      </el-table-column>
+      <el-table-column prop="id" label="订单号" width="70" />
+      <el-table-column prop="order_date" label="订单日期" width="130">
         <template #default="{ row }">
           {{ formatDate(row.order_date) }}
         </template>
       </el-table-column>
-      <el-table-column prop="customer_name" label="客户" />
-      <el-table-column prop="total_amount" label="订单金额" width="120">
+      <el-table-column prop="customer_name" label="客户" show-overflow-tooltip />
+      <el-table-column prop="total_amount" label="订单金额" width="100">
         <template #default="{ row }">
           ¥{{ row.total_amount.toFixed(2) }}
         </template>
       </el-table-column>
-      <el-table-column prop="payment_status" label="付款状态" width="100" />
-      <el-table-column label="操作" width="180">
+      <el-table-column prop="payment_status" label="付款状态" width="90" />
+      <el-table-column label="操作" width="180" fixed="right">
         <template #default="{ row }">
-          <el-button size="small" @click="handleView(row)">查看</el-button>
-          <el-button size="small" @click="handleEdit(row)">编辑</el-button>
-          <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button>
+          <el-button size="small" link @click="handleView(row)">查看</el-button>
+          <el-button size="small" link type="primary" @click="handleEdit(row)">编辑</el-button>
+          <el-button size="small" link type="danger" @click="handleDelete(row)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -65,7 +94,7 @@
             </el-form-item>
           </el-col>
         </el-row>
-        
+
         <el-divider>订单明细</el-divider>
         <el-table :data="form.items" border>
           <el-table-column label="商品" width="200">
@@ -253,7 +282,7 @@ const handleSubmit = async () => {
     ElMessage.warning('请添加至少一个商品')
     return
   }
-  
+
   try {
     const payload = {
       order_date: form.order_date.toISOString(),
@@ -267,7 +296,7 @@ const handleSubmit = async () => {
         discount_rate: item.discount_rate
       }))
     }
-    
+
     if (editingId.value) {
       await api.put(`/sales-orders/${editingId.value}`, payload)
       ElMessage.success('更新成功')
@@ -303,10 +332,38 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.sales-orders-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
 .header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
+}
+
+:deep(.el-table) {
+  width: 100% !important;
+  flex: 1;
+}
+
+:deep(.el-table__body-wrapper) {
+  overflow-x: auto !important;
+}
+
+:deep(.el-table__header-wrapper) {
+  overflow-x: auto !important;
+}
+
+:deep(.el-table td) {
+  padding: 8px 0;
+}
+
+:deep(.el-table__row) {
+  height: auto;
 }
 </style>
