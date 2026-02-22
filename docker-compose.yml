@@ -1,12 +1,18 @@
 version: '3.8'
 
 services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/data:/app/data
       - ./backend:/app
     environment:
       - PYTHONUNBUFFERED=1
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
-    depends_on:
-      - init-db
 
   frontend:
     build:
@@ -20,17 +26,8 @@ services:
     environment:
       - VITE_API_BASE_URL=http://localhost:8000
     command: npm run dev -- --host 0.0.0.0
-
-  init-db:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    volumes:
-      - ./backend/data:/app/data
-    command: python init_db.py
-    profiles:
-      - init
-
+    depends_on:
+      - backend
 
   init-db:
     build:
