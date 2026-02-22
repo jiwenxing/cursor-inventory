@@ -11,10 +11,19 @@
 ```bash
 docker-compose --profile init run --rm init-db
 ```
+阿里云ecs命令
+```bash
+sudo docker compose --profile init run --rm init-db
+```
 
 ### 2. 启动服务
 ```bash
 docker-compose up -d
+```
+
+阿里云ecs命令
+```bash
+sudo docker compose up -d
 ```
 
 ### 3. 访问系统
