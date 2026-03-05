@@ -58,12 +58,20 @@ class ProductCreate(BaseModel):
     brand: Optional[str] = None
     unit: str = "件"
     tax_rate: float = 0.13
+    purchase_price: float = 0
+    retail_price: float = 0
+    supplier: Optional[str] = None
+    supplier_contact: Optional[str] = None
 
 class ProductUpdate(BaseModel):
     name: Optional[str] = None
     brand: Optional[str] = None
     unit: Optional[str] = None
     tax_rate: Optional[float] = None
+    purchase_price: Optional[float] = None
+    retail_price: Optional[float] = None
+    supplier: Optional[str] = None
+    supplier_contact: Optional[str] = None
 
 class ProductResponse(BaseModel):
     id: int
@@ -72,8 +80,12 @@ class ProductResponse(BaseModel):
     brand: Optional[str]
     unit: str
     tax_rate: float
+    purchase_price: float
+    retail_price: float
+    supplier: Optional[str]
+    supplier_contact: Optional[str]
     created_at: datetime
-    
+
     class Config:
         from_attributes = True
 

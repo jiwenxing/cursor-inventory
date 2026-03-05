@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Enum, Text
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Enum, Text, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.database import Base
@@ -37,13 +37,20 @@ class Customer(Base):
 
 class Product(Base):
     __tablename__ = "products"
-    
+    __table_args__ = (
+        UniqueConstraint('brand', 'model', name='uq_brand_model'),
+    )
+
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(200), nullable=False)
-    model = Column(String(100), unique=True, nullable=False, index=True)
+    model = Column(String(100), nullable=False, index=True)
     brand = Column(String(100))
     unit = Column(String(20), default="件")
     tax_rate = Column(Float, default=0.13)  # 默认税率13%
+    purchase_price = Column(Float, default=0)  # 采购价
+    retail_price = Column(Float, default=0)  # 零售价/销售价
+    supplier = Column(String(200))  # 供应商
+    supplier_contact = Column(String(100))  # 供应商联系方式
     created_at = Column(DateTime, server_default=func.now())
     
     order_items = relationship("SalesOrderItem", back_populates="product")
