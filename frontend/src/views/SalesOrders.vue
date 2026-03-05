@@ -334,21 +334,13 @@ onMounted(() => {
 <style scoped>
 .sales-orders-container {
   width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
 }
 
 .header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
-}
-
-:deep(.el-table) {
-  width: 100% !important;
-  flex: 1;
+  margin-bottom: 15px;
 }
 
 :deep(.el-table__body-wrapper) {

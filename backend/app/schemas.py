@@ -12,7 +12,7 @@ class UserResponse(BaseModel):
     id: int
     username: str
     name: Optional[str]
-    
+
     class Config:
         from_attributes = True
 
@@ -47,9 +47,43 @@ class CustomerResponse(BaseModel):
     phone: Optional[str]
     address: Optional[str]
     created_at: datetime
-    
+
     class Config:
         from_attributes = True
+
+# 供应商相关
+class SupplierCreate(BaseModel):
+    name: str
+    contact: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    address: Optional[str] = None
+    remark: Optional[str] = None
+
+class SupplierUpdate(BaseModel):
+    name: Optional[str] = None
+    contact: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    address: Optional[str] = None
+    remark: Optional[str] = None
+
+class SupplierResponse(BaseModel):
+    id: int
+    name: str
+    contact: Optional[str]
+    phone: Optional[str]
+    email: Optional[str]
+    address: Optional[str]
+    remark: Optional[str]
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class PaginatedSuppliersResponse(BaseModel):
+    items: List[SupplierResponse]
+    total: int
 
 # 商品相关
 class ProductCreate(BaseModel):
@@ -60,8 +94,7 @@ class ProductCreate(BaseModel):
     tax_rate: float = 0.13
     purchase_price: float = 0
     retail_price: float = 0
-    supplier: Optional[str] = None
-    supplier_contact: Optional[str] = None
+    supplier_id: Optional[int] = None
 
 class ProductUpdate(BaseModel):
     name: Optional[str] = None
@@ -70,8 +103,7 @@ class ProductUpdate(BaseModel):
     tax_rate: Optional[float] = None
     purchase_price: Optional[float] = None
     retail_price: Optional[float] = None
-    supplier: Optional[str] = None
-    supplier_contact: Optional[str] = None
+    supplier_id: Optional[int] = None
 
 class ProductResponse(BaseModel):
     id: int
@@ -82,8 +114,8 @@ class ProductResponse(BaseModel):
     tax_rate: float
     purchase_price: float
     retail_price: float
-    supplier: Optional[str]
-    supplier_contact: Optional[str]
+    supplier_id: Optional[int]
+    supplier_name: Optional[str] = None
     created_at: datetime
 
     class Config:
@@ -108,7 +140,7 @@ class SalesOrderItemResponse(BaseModel):
     line_total: float
     shipped_quantity: float
     unshipped_quantity: float
-    
+
     class Config:
         from_attributes = True
 
@@ -131,7 +163,7 @@ class SalesOrderResponse(BaseModel):
     total_amount: Optional[float] = 0.0
     created_at: datetime
     items: List[SalesOrderItemResponse] = []
-    
+
     class Config:
         from_attributes = True
 
@@ -151,7 +183,7 @@ class InventoryRecordResponse(BaseModel):
     quantity: float
     related_order_id: Optional[int] = None
     created_at: datetime
-    
+
     class Config:
         from_attributes = True
 
@@ -160,7 +192,7 @@ class InventorySummaryResponse(BaseModel):
     product_name: Optional[str] = None
     product_model: Optional[str] = None
     current_stock: float
-    
+
     class Config:
         from_attributes = True
 
@@ -172,7 +204,7 @@ class ImportErrorLogResponse(BaseModel):
     error_message: str
     row_data: Optional[str]
     created_at: datetime
-    
+
     class Config:
         from_attributes = True
 

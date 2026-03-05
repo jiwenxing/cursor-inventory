@@ -10,7 +10,7 @@
         <el-col :span="4">
           <el-input
             v-model="searchForm.search"
-            placeholder="搜索商品名称、型号、品牌、供应商..."
+            placeholder="搜索商品名称、型号、品牌..."
             clearable
             @input="handleSearch"
           >
@@ -44,12 +44,20 @@
           />
         </el-col>
         <el-col :span="3">
-          <el-input
-            v-model="searchForm.supplier"
+          <el-select
+            v-model="searchForm.supplier_id"
             placeholder="供应商"
             clearable
-            @input="handleSearch"
-          />
+            @change="handleSearch"
+            style="width: 100%"
+          >
+            <el-option
+              v-for="s in suppliers"
+              :key="s.id"
+              :label="s.name"
+              :value="s.id"
+            />
+          </el-select>
         </el-col>
         <el-col :span="3">
           <el-input
@@ -96,7 +104,7 @@
           {{ (row.tax_rate * 100).toFixed(0) }}%
         </template>
       </el-table-column>
-      <el-table-column prop="supplier" label="供应商" width="120" show-overflow-tooltip />
+      <el-table-column prop="supplier_name" label="供应商" width="120" show-overflow-tooltip />
       <el-table-column label="操作" width="150" fixed="right">
         <template #default="{ row }">
           <el-button size="small" link @click="handleCopy(row)">复制</el-button>
@@ -105,6 +113,18 @@
         </template>
       </el-table-column>
     </el-table>
+
+    <div class="pagination-container">
+      <el-pagination
+        v-model:current-page="currentPage"
+        v-model:page-size="pageSize"
+        :page-sizes="[15, 30, 50, 100]"
+        :total="total"
+        layout="total, sizes, prev, pager, next, jumper"
+        @size-change="handleSizeChange"
+        @current-change="handleCurrentChange"
+      />
+    </div>
 
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="700px">
       <el-form :model="form" :rules="rules" ref="formRef" label-width="100px">
@@ -151,15 +171,15 @@
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="供应商" prop="supplier">
-              <el-input v-model="form.supplier" />
-            </el-form-item>
-          </el-col>
-        </el-row>
-        <el-row :gutter="20">
-          <el-col :span="24">
-            <el-form-item label="供应商联系方式" prop="supplier_contact">
-              <el-input v-model="form.supplier_contact" placeholder="电话/邮箱等" />
+            <el-form-item label="供应商" prop="supplier_id">
+              <el-select v-model="form.supplier_id" placeholder="选择供应商" clearable style="width: 100%">
+                <el-option
+                  v-for="s in suppliers"
+                  :key="s.id"
+                  :label="s.name"
+                  :value="s.id"
+                />
+              </el-select>
             </el-form-item>
           </el-col>
         </el-row>
@@ -179,11 +199,17 @@ import { Search } from '@element-plus/icons-vue'
 import api from '../api'
 
 const products = ref([])
+const suppliers = ref([])
 const loading = ref(false)
 const dialogVisible = ref(false)
 const dialogTitle = ref('新增商品')
 const formRef = ref(null)
 const editingId = ref(null)
+
+// 分页相关
+const total = ref(0)
+const currentPage = ref(1)
+const pageSize = ref(15)
 
 const form = reactive({
   name: '',
@@ -193,8 +219,7 @@ const form = reactive({
   tax_rate: 0.13,
   purchase_price: 0,
   retail_price: 0,
-  supplier: '',
-  supplier_contact: ''
+  supplier_id: null
 })
 
 const searchForm = reactive({
@@ -202,7 +227,7 @@ const searchForm = reactive({
   name: '',
   model: '',
   brand: '',
-  supplier: '',
+  supplier_id: undefined,
   min_price: undefined,
   max_price: undefined
 })
@@ -217,11 +242,42 @@ const formatPrice = (price) => {
   return typeof price === 'number' ? price.toFixed(2) : parseFloat(price || 0).toFixed(2)
 }
 
+// 加载供应商列表
+const loadSuppliers = async () => {
+  try {
+    const response = await api.get('/suppliers/', { params: { limit: 1000 } })
+    suppliers.value = response.data.items
+  } catch (error) {
+    console.error('加载供应商列表失败', error)
+  }
+}
+
+// 获取当前搜索参数
+const getSearchParams = () => {
+  const params = {}
+  if (searchForm.search) params.search = searchForm.search
+  if (searchForm.name) params.name = searchForm.name
+  if (searchForm.model) params.model = searchForm.model
+  if (searchForm.brand) params.brand = searchForm.brand
+  if (searchForm.supplier_id !== undefined && searchForm.supplier_id !== '') params.supplier_id = searchForm.supplier_id
+  if (searchForm.min_price !== undefined && searchForm.min_price !== '') params.min_price = searchForm.min_price
+  if (searchForm.max_price !== undefined && searchForm.max_price !== '') params.max_price = searchForm.max_price
+  return params
+}
+
 const loadProducts = async (params = {}) => {
   loading.value = true
   try {
-    const response = await api.get('/products/', { params })
-    products.value = response.data
+    const skip = (currentPage.value - 1) * pageSize.value
+    const response = await api.get('/products/', {
+      params: {
+        ...params,
+        skip,
+        limit: pageSize.value
+      }
+    })
+    products.value = response.data.items
+    total.value = response.data.total
   } catch (error) {
     ElMessage.error('加载商品列表失败')
   } finally {
@@ -230,17 +286,8 @@ const loadProducts = async (params = {}) => {
 }
 
 const handleSearch = () => {
-  // 构建查询参数
-  const params = {}
-  if (searchForm.search) params.search = searchForm.search
-  if (searchForm.name) params.name = searchForm.name
-  if (searchForm.model) params.model = searchForm.model
-  if (searchForm.brand) params.brand = searchForm.brand
-  if (searchForm.supplier) params.supplier = searchForm.supplier
-  if (searchForm.min_price !== undefined && searchForm.min_price !== '') params.min_price = searchForm.min_price
-  if (searchForm.max_price !== undefined && searchForm.max_price !== '') params.max_price = searchForm.max_price
-
-  loadProducts(params)
+  currentPage.value = 1 // 搜索时重置到第一页
+  loadProducts(getSearchParams())
 }
 
 const handleReset = () => {
@@ -248,10 +295,22 @@ const handleReset = () => {
   searchForm.name = ''
   searchForm.model = ''
   searchForm.brand = ''
-  searchForm.supplier = ''
+  searchForm.supplier_id = undefined
   searchForm.min_price = undefined
   searchForm.max_price = undefined
+  currentPage.value = 1
   loadProducts()
+}
+
+const handleSizeChange = (val) => {
+  pageSize.value = val
+  currentPage.value = 1
+  loadProducts(getSearchParams())
+}
+
+const handleCurrentChange = (val) => {
+  currentPage.value = val
+  loadProducts(getSearchParams())
 }
 
 const handleAdd = () => {
@@ -265,8 +324,7 @@ const handleAdd = () => {
     tax_rate: 0.13,
     purchase_price: 0,
     retail_price: 0,
-    supplier: '',
-    supplier_contact: ''
+    supplier_id: null
   })
   dialogVisible.value = true
 }
@@ -274,7 +332,6 @@ const handleAdd = () => {
 const handleCopy = (row) => {
   editingId.value = null
   dialogTitle.value = '复制商品'
-  // 复制商品信息，但清空ID，允许修改型号和品牌
   Object.assign(form, {
     name: row.name + ' (副本)',
     model: row.model + '-copy',
@@ -283,8 +340,7 @@ const handleCopy = (row) => {
     tax_rate: row.tax_rate,
     purchase_price: row.purchase_price || 0,
     retail_price: row.retail_price || 0,
-    supplier: row.supplier || '',
-    supplier_contact: row.supplier_contact || ''
+    supplier_id: row.supplier_id || null
   })
   dialogVisible.value = true
 }
@@ -300,8 +356,7 @@ const handleEdit = (row) => {
     tax_rate: row.tax_rate,
     purchase_price: row.purchase_price || 0,
     retail_price: row.retail_price || 0,
-    supplier: row.supplier || '',
-    supplier_contact: row.supplier_contact || ''
+    supplier_id: row.supplier_id || null
   })
   dialogVisible.value = true
 }
@@ -310,11 +365,17 @@ const handleSubmit = async () => {
   await formRef.value.validate(async (valid) => {
     if (valid) {
       try {
+        const submitData = { ...form }
+        // 如果 supplier_id 为 null，转为 undefined 以便 exclude_unset 正确处理
+        if (submitData.supplier_id === null) {
+          submitData.supplier_id = undefined
+        }
+
         if (editingId.value) {
-          await api.put(`/products/${editingId.value}`, form)
+          await api.put(`/products/${editingId.value}`, submitData)
           ElMessage.success('更新成功')
         } else {
-          await api.post('/products/', form)
+          await api.post('/products/', submitData)
           ElMessage.success('创建成功')
         }
         dialogVisible.value = false
@@ -341,22 +402,20 @@ const handleDelete = async (row) => {
 
 onMounted(() => {
   loadProducts()
+  loadSuppliers()
 })
 </script>
 
 <style scoped>
 .products-container {
   width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
 }
 
 .header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 15px;
 }
 
 .search-box {
@@ -366,8 +425,11 @@ onMounted(() => {
   margin-bottom: 15px;
 }
 
-:deep(.el-table) {
-  width: 100% !important;
-  flex: 1;
+.pagination-container {
+  display: flex;
+  justify-content: flex-end;
+  padding: 15px 0 0 0;
+  margin-top: 15px;
+  border-top: 1px solid #ebeef5;
 }
 </style>

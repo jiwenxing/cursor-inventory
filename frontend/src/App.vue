@@ -1,16 +1,16 @@
 <template>
-  <el-container>
+  <el-container class="app-container">
     <el-header v-if="isLoggedIn">
       <div class="header-content">
-        <h2>进销存系统</h2>
+        <h2>杭州松德机械科技有限公司</h2>
         <div class="user-info">
           <span>{{ currentUser?.name || currentUser?.username }}</span>
           <el-button type="danger" size="small" @click="logout">退出</el-button>
         </div>
       </div>
     </el-header>
-    <el-container>
-      <el-aside v-if="isLoggedIn" width="200px">
+    <el-container v-if="isLoggedIn" class="main-container">
+      <el-aside width="200px">
         <el-menu
           :default-active="activeMenu"
           router
@@ -25,6 +25,10 @@
           <el-menu-item index="/customers">
             <el-icon><User /></el-icon>
             <span>客户管理</span>
+          </el-menu-item>
+          <el-menu-item index="/suppliers">
+            <el-icon><Shop /></el-icon>
+            <span>供应商管理</span>
           </el-menu-item>
           <el-menu-item index="/products">
             <el-icon><Box /></el-icon>
@@ -52,6 +56,9 @@
         <router-view />
       </el-main>
     </el-container>
+    <el-main v-else class="login-main">
+      <router-view />
+    </el-main>
   </el-container>
 </template>
 
@@ -59,7 +66,7 @@
 import { computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from './stores/auth'
-import { DataBoard, User, Box, Document, Goods, DataAnalysis, Upload } from '@element-plus/icons-vue'
+import { DataBoard, User, Shop, Box, Document, Goods, DataAnalysis, Upload } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -82,12 +89,22 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.app-container {
+  height: 100vh;
+}
+
 .header-content {
   display: flex;
   justify-content: space-between;
   align-items: center;
   height: 100%;
   color: white;
+}
+
+.header-content h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 600;
 }
 
 .user-info {
@@ -100,6 +117,11 @@ onMounted(() => {
   background-color: #409eff;
   color: white;
   line-height: 60px;
+  padding: 0 20px;
+}
+
+.main-container {
+  height: calc(100vh - 60px);
 }
 
 .el-aside {
@@ -108,6 +130,14 @@ onMounted(() => {
 
 .el-main {
   background-color: #f0f2f5;
-  padding: 20px;
+  padding: 15px;
+  overflow: auto;
+}
+
+.login-main {
+  background-color: #f0f2f5;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 </style>

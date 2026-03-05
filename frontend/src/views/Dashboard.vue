@@ -51,17 +51,25 @@ const stats = ref({
 
 const loadStats = async () => {
   try {
+    // 商品API已改为分页格式，返回 {items: [], total: number}
     const [customers, products, orders, receivables] = await Promise.all([
       api.get('/customers/'),
-      api.get('/products/'),
+      api.get('/products/', { params: { limit: 1 } }),  // 只获取一条，total在response.data.total中
       api.get('/sales-orders/'),
       api.get('/statistics/receivables')
     ])
-    
+
+    // 客户API返回数组，直接取length
+    const customerCount = Array.isArray(customers.data) ? customers.data.length : 0
+    // 商品API返回分页格式，取total
+    const productCount = products.data.total || 0
+    // 订单API返回数组，直接取length
+    const orderCount = Array.isArray(orders.data) ? orders.data.length : 0
+
     stats.value = {
-      totalCustomers: customers.data.length,
-      totalProducts: products.data.length,
-      totalOrders: orders.data.length,
+      totalCustomers: customerCount,
+      totalProducts: productCount,
+      totalOrders: orderCount,
       totalReceivables: receivables.data.reduce((sum, item) => sum + item.receivable_amount, 0).toFixed(2)
     }
   } catch (error) {
