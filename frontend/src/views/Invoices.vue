@@ -41,21 +41,10 @@
             start-placeholder="开始日期"
             end-placeholder="结束日期"
             value-format="YYYY-MM-DD"
+            :shortcuts="dateShortcuts"
             @change="handleDateRangeChange"
             style="width: 100%"
           />
-        </el-col>
-        <el-col :span="3">
-          <el-select
-            v-model="searchForm.status"
-            placeholder="状态"
-            clearable
-            @change="handleSearch"
-            style="width: 100%"
-          >
-            <el-option label="已开票" value="已开票" />
-            <el-option label="已作废" value="已作废" />
-          </el-select>
         </el-col>
         <el-col :span="3">
           <el-button @click="handleReset" plain>重置</el-button>
@@ -327,6 +316,64 @@ const form = reactive({
 const formatDate = (date) => {
   return dayjs(date).format('YYYY-MM-DD HH:mm')
 }
+
+// 日期选择器快捷选项
+const dateShortcuts = [
+  {
+    text: '今天',
+    value: () => {
+      const today = dayjs().format('YYYY-MM-DD')
+      return [today, today]
+    }
+  },
+  {
+    text: '昨天',
+    value: () => {
+      const yesterday = dayjs().subtract(1, 'day').format('YYYY-MM-DD')
+      return [yesterday, yesterday]
+    }
+  },
+  {
+    text: '本周',
+    value: () => {
+      const start = dayjs().startOf('week').add(1, 'day').format('YYYY-MM-DD')
+      const end = dayjs().format('YYYY-MM-DD')
+      return [start, end]
+    }
+  },
+  {
+    text: '上周',
+    value: () => {
+      const start = dayjs().startOf('week').subtract(1, 'week').add(1, 'day').format('YYYY-MM-DD')
+      const end = dayjs().startOf('week').format('YYYY-MM-DD')
+      return [start, end]
+    }
+  },
+  {
+    text: '本月',
+    value: () => {
+      const start = dayjs().startOf('month').format('YYYY-MM-DD')
+      const end = dayjs().format('YYYY-MM-DD')
+      return [start, end]
+    }
+  },
+  {
+    text: '上月',
+    value: () => {
+      const start = dayjs().subtract(1, 'month').startOf('month').format('YYYY-MM-DD')
+      const end = dayjs().subtract(1, 'month').endOf('month').format('YYYY-MM-DD')
+      return [start, end]
+    }
+  },
+  {
+    text: '本年',
+    value: () => {
+      const start = dayjs().startOf('year').format('YYYY-MM-DD')
+      const end = dayjs().format('YYYY-MM-DD')
+      return [start, end]
+    }
+  }
+]
 
 const handleDateRangeChange = (val) => {
   if (val && val.length === 2) {

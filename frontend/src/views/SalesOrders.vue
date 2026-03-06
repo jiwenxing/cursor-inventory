@@ -46,24 +46,12 @@
             start-placeholder="开始日期"
             end-placeholder="结束日期"
             value-format="YYYY-MM-DD"
+            :shortcuts="dateShortcuts"
             @change="handleDateRangeChange"
             style="width: 100%"
           />
         </el-col>
         <el-col :span="2">
-          <el-button-group>
-            <el-button @click="setQuickDate('today')">今天</el-button>
-            <el-button @click="setQuickDate('week')">近一周</el-button>
-            <el-button @click="setQuickDate('month')">近一月</el-button>
-          </el-button-group>
-        </el-col>
-        <el-col :span="2">
-          <el-button-group>
-            <el-button @click="setQuickDate('3months')">3个月</el-button>
-            <el-button @click="setQuickDate('halfyear')">半年</el-button>
-          </el-button-group>
-        </el-col>
-        <el-col :span="3">
           <el-button @click="handleReset" plain>重置</el-button>
         </el-col>
         <el-col :span="3">
@@ -298,39 +286,63 @@ const formatDate = (date) => {
   return dayjs(date).format('YYYY-MM-DD HH:mm')
 }
 
-// 快速选择日期
-const setQuickDate = (type) => {
-  const now = dayjs()
-  let start, end
-
-  switch (type) {
-    case 'today':
-      start = now.format('YYYY-MM-DD')
-      end = now.format('YYYY-MM-DD')
-      break
-    case 'week':
-      start = now.subtract(1, 'week').format('YYYY-MM-DD')
-      end = now.format('YYYY-MM-DD')
-      break
-    case 'month':
-      start = now.subtract(1, 'month').format('YYYY-MM-DD')
-      end = now.format('YYYY-MM-DD')
-      break
-    case '3months':
-      start = now.subtract(3, 'month').format('YYYY-MM-DD')
-      end = now.format('YYYY-MM-DD')
-      break
-    case 'halfyear':
-      start = now.subtract(6, 'month').format('YYYY-MM-DD')
-      end = now.format('YYYY-MM-DD')
-      break
+// 日期选择器快捷选项
+const dateShortcuts = [
+  {
+    text: '今天',
+    value: () => {
+      const today = dayjs().format('YYYY-MM-DD')
+      return [today, today]
+    }
+  },
+  {
+    text: '昨天',
+    value: () => {
+      const yesterday = dayjs().subtract(1, 'day').format('YYYY-MM-DD')
+      return [yesterday, yesterday]
+    }
+  },
+  {
+    text: '本周',
+    value: () => {
+      const start = dayjs().startOf('week').add(1, 'day').format('YYYY-MM-DD')
+      const end = dayjs().format('YYYY-MM-DD')
+      return [start, end]
+    }
+  },
+  {
+    text: '上周',
+    value: () => {
+      const start = dayjs().startOf('week').subtract(1, 'week').add(1, 'day').format('YYYY-MM-DD')
+      const end = dayjs().startOf('week').format('YYYY-MM-DD')
+      return [start, end]
+    }
+  },
+  {
+    text: '本月',
+    value: () => {
+      const start = dayjs().startOf('month').format('YYYY-MM-DD')
+      const end = dayjs().format('YYYY-MM-DD')
+      return [start, end]
+    }
+  },
+  {
+    text: '上月',
+    value: () => {
+      const start = dayjs().subtract(1, 'month').startOf('month').format('YYYY-MM-DD')
+      const end = dayjs().subtract(1, 'month').endOf('month').format('YYYY-MM-DD')
+      return [start, end]
+    }
+  },
+  {
+    text: '本年',
+    value: () => {
+      const start = dayjs().startOf('year').format('YYYY-MM-DD')
+      const end = dayjs().format('YYYY-MM-DD')
+      return [start, end]
+    }
   }
-
-  searchForm.dateRange = [start, end]
-  searchForm.start_date = start
-  searchForm.end_date = end
-  handleSearch()
-}
+]
 
 // 日期范围变化
 const handleDateRangeChange = (val) => {
