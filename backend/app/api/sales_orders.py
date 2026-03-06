@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from typing import List, Optional
 from datetime import datetime
 from app.database import get_db
-from app.models import SalesOrder, SalesOrderItem, Product, Customer, User, InventoryRecord, InventorySummary
+from app.models import SalesOrder, SalesOrderItem, Product, Customer, User, InventoryRecord, InventorySummary, InvoiceItem
 from app.schemas import SalesOrderCreate, SalesOrderResponse, SalesOrderItemResponse
 from app.utils import get_current_user
 
@@ -16,8 +17,17 @@ class PaginatedOrdersResponse(BaseModel):
     total: int
 
 
-def order_to_dict(order: SalesOrder) -> dict:
+def order_to_dict(order: SalesOrder, db: Session = None) -> dict:
     """将订单对象转换为字典"""
+    # 计算已开票金额
+    invoiced_amount = 0
+    if db:
+        invoiced_amount = db.query(func.sum(InvoiceItem.amount)).filter(
+            InvoiceItem.order_id == order.id
+        ).scalar() or 0
+
+    balance_amount = order.total_amount - invoiced_amount
+
     return {
         "id": order.id,
         "order_date": order.order_date,
@@ -28,6 +38,8 @@ def order_to_dict(order: SalesOrder) -> dict:
         "contract_amount": order.contract_amount,
         "payment_status": order.payment_status,
         "total_amount": order.total_amount,
+        "invoiced_amount": invoiced_amount,
+        "balance_amount": balance_amount,
         "created_at": order.created_at,
         "items": [{
             "id": item.id,
@@ -111,7 +123,7 @@ def get_sales_orders(
     # 分页查询
     orders = query.order_by(SalesOrder.order_date.desc()).offset(skip).limit(limit).all()
 
-    result = [order_to_dict(order) for order in orders]
+    result = [order_to_dict(order, db) for order in orders]
 
     return {"items": result, "total": total}
 
@@ -120,31 +132,7 @@ def get_sales_order(order_id: int, db: Session = Depends(get_db), current_user: 
     order = db.query(SalesOrder).filter(SalesOrder.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="订单不存在")
-    return {
-        "id": order.id,
-        "order_date": order.order_date,
-        "customer_id": order.customer_id,
-        "customer_name": order.customer.name if order.customer else None,
-        "salesperson_id": order.salesperson_id,
-        "salesperson_name": order.salesperson.name if order.salesperson else None,
-        "contract_amount": order.contract_amount,
-        "payment_status": order.payment_status,
-        "total_amount": order.total_amount,
-        "created_at": order.created_at,
-        "items": [{
-            "id": item.id,
-            "product_id": item.product_id,
-            "product_name": item.product.name if item.product else None,
-            "product_model": item.product.model if item.product else None,
-            "quantity": item.quantity,
-            "unit_price_tax": item.unit_price_tax,
-            "discount_rate": item.discount_rate,
-            "final_unit_price_tax": item.final_unit_price_tax,
-            "line_total": item.line_total,
-            "shipped_quantity": item.shipped_quantity,
-            "unshipped_quantity": item.unshipped_quantity
-        } for item in order.items]
-    }
+    return order_to_dict(order, db)
 
 @router.post("/", response_model=SalesOrderResponse)
 def create_sales_order(order: SalesOrderCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):

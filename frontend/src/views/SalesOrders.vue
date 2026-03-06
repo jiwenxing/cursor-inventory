@@ -127,7 +127,19 @@
       <el-table-column prop="salesperson_name" label="销售员" width="80" />
       <el-table-column prop="total_amount" label="订单金额" width="100">
         <template #default="{ row }">
-          ¥{{ row.total_amount.toFixed(2) }}
+          ¥{{ row.total_amount?.toFixed(2) }}
+        </template>
+      </el-table-column>
+      <el-table-column label="已开票" width="90">
+        <template #default="{ row }">
+          <span style="color: #909399;">¥{{ (row.invoiced_amount || 0).toFixed(2) }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="可开票" width="90">
+        <template #default="{ row }">
+          <span :style="{ color: (row.balance_amount || 0) > 0 ? '#67c23a' : '#909399' }">
+            ¥{{ (row.balance_amount || 0).toFixed(2) }}
+          </span>
         </template>
       </el-table-column>
       <el-table-column prop="payment_status" label="付款状态" width="90" />
