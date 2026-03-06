@@ -4,12 +4,17 @@
       <h2>客户管理</h2>
       <el-button type="primary" @click="handleAdd">新增客户</el-button>
     </div>
-    
+
     <el-table :data="customers" style="width: 100%" v-loading="loading">
+      <el-table-column prop="id" label="客户编码" width="120">
+        <template #default="{ row }">
+          {{ 100000 + row.id }}
+        </template>
+      </el-table-column>
       <el-table-column prop="name" label="客户名称" />
-      <el-table-column prop="code" label="客户编码" />
       <el-table-column prop="contact" label="联系人" />
       <el-table-column prop="phone" label="电话" />
+      <el-table-column prop="email" label="邮箱" />
       <el-table-column prop="address" label="地址" show-overflow-tooltip />
       <el-table-column label="操作" width="180">
         <template #default="{ row }">
@@ -19,19 +24,31 @@
       </el-table-column>
     </el-table>
 
+    <div class="pagination">
+      <el-pagination
+        v-model:current-page="currentPage"
+        v-model:page-size="pageSize"
+        :total="total"
+        :page-sizes="[10, 20, 50, 100]"
+        layout="total, sizes, prev, pager, next, jumper"
+        @size-change="handleSizeChange"
+        @current-change="handleCurrentChange"
+      />
+    </div>
+
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="600px">
       <el-form :model="form" :rules="rules" ref="formRef" label-width="100px">
         <el-form-item label="客户名称" prop="name">
           <el-input v-model="form.name" />
-        </el-form-item>
-        <el-form-item label="客户编码" prop="code">
-          <el-input v-model="form.code" />
         </el-form-item>
         <el-form-item label="联系人" prop="contact">
           <el-input v-model="form.contact" />
         </el-form-item>
         <el-form-item label="电话" prop="phone">
           <el-input v-model="form.phone" />
+        </el-form-item>
+        <el-form-item label="邮箱" prop="email">
+          <el-input v-model="form.email" />
         </el-form-item>
         <el-form-item label="地址" prop="address">
           <el-input v-model="form.address" type="textarea" />
@@ -57,11 +74,15 @@ const dialogTitle = ref('新增客户')
 const formRef = ref(null)
 const editingId = ref(null)
 
+const currentPage = ref(1)
+const pageSize = ref(10)
+const total = ref(0)
+
 const form = reactive({
   name: '',
-  code: '',
   contact: '',
   phone: '',
+  email: '',
   address: ''
 })
 
@@ -72,8 +93,10 @@ const rules = {
 const loadCustomers = async () => {
   loading.value = true
   try {
-    const response = await api.get('/customers/')
-    customers.value = response.data
+    const skip = (currentPage.value - 1) * pageSize.value
+    const response = await api.get('/customers/', { params: { skip, limit: pageSize.value } })
+    customers.value = response.data.items
+    total.value = response.data.total
   } catch (error) {
     ElMessage.error('加载客户列表失败')
   } finally {
@@ -81,10 +104,20 @@ const loadCustomers = async () => {
   }
 }
 
+const handleSizeChange = (val) => {
+  pageSize.value = val
+  loadCustomers()
+}
+
+const handleCurrentChange = (val) => {
+  currentPage.value = val
+  loadCustomers()
+}
+
 const handleAdd = () => {
   editingId.value = null
   dialogTitle.value = '新增客户'
-  Object.assign(form, { name: '', code: '', contact: '', phone: '', address: '' })
+  Object.assign(form, { name: '', contact: '', phone: '', email: '', address: '' })
   dialogVisible.value = true
 }
 
@@ -139,5 +172,11 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
+}
+
+.pagination {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
 }
 </style>

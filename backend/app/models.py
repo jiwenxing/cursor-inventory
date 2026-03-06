@@ -27,9 +27,9 @@ class Customer(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(200), nullable=False, index=True)
-    code = Column(String(50), unique=True, index=True)
     contact = Column(String(100))
     phone = Column(String(50))
+    email = Column(String(100))
     address = Column(Text)
     created_at = Column(DateTime, server_default=func.now())
 

@@ -3,15 +3,16 @@ from sqlalchemy.orm import Session
 from typing import List
 from app.database import get_db
 from app.models import Customer, User
-from app.schemas import CustomerCreate, CustomerUpdate, CustomerResponse
+from app.schemas import CustomerCreate, CustomerUpdate, CustomerResponse, PaginatedCustomersResponse
 from app.utils import get_current_user
 
 router = APIRouter()
 
-@router.get("/", response_model=List[CustomerResponse])
-def get_customers(skip: int = 0, limit: int = 100, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+@router.get("/", response_model=PaginatedCustomersResponse)
+def get_customers(skip: int = 0, limit: int = 10, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     customers = db.query(Customer).offset(skip).limit(limit).all()
-    return customers
+    total = db.query(Customer).count()
+    return {"items": customers, "total": total}
 
 @router.get("/{customer_id}", response_model=CustomerResponse)
 def get_customer(customer_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
@@ -22,10 +23,6 @@ def get_customer(customer_id: int, db: Session = Depends(get_db), current_user: 
 
 @router.post("/", response_model=CustomerResponse)
 def create_customer(customer: CustomerCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    if customer.code:
-        existing = db.query(Customer).filter(Customer.code == customer.code).first()
-        if existing:
-            raise HTTPException(status_code=400, detail="客户编码已存在")
     db_customer = Customer(**customer.dict())
     db.add(db_customer)
     db.commit()

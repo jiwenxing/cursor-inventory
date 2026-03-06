@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(sqlite3 /Users/jiwenxing/Wks/study/cursor-inventory/backend/data/app.db \"PRAGMA table_info\\(customers\\);\")"
+    ]
+  }
+}
