@@ -59,12 +59,12 @@ const loadStats = async () => {
       api.get('/statistics/receivables')
     ])
 
-    // 客户API返回数组，直接取length
-    const customerCount = Array.isArray(customers.data) ? customers.data.length : 0
+    // 客户API返回分页格式，取total
+    const customerCount = customers.data.total || 0
     // 商品API返回分页格式，取total
     const productCount = products.data.total || 0
-    // 订单API返回数组，直接取length
-    const orderCount = Array.isArray(orders.data) ? orders.data.length : 0
+    // 订单API返回分页格式，取total
+    const orderCount = orders.data.total || 0
 
     stats.value = {
       totalCustomers: customerCount,
