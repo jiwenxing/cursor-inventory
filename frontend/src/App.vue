@@ -38,6 +38,10 @@
             <el-icon><Document /></el-icon>
             <span>销售订单</span>
           </el-menu-item>
+          <el-menu-item index="/invoices">
+            <el-icon><Ticket /></el-icon>
+            <span>发票管理</span>
+          </el-menu-item>
           <el-menu-item index="/inventory">
             <el-icon><Goods /></el-icon>
             <span>库存管理</span>
@@ -66,7 +70,7 @@
 import { computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from './stores/auth'
-import { DataBoard, User, Shop, Box, Document, Goods, DataAnalysis, Upload } from '@element-plus/icons-vue'
+import { DataBoard, User, Shop, Box, Document, Ticket, Goods, DataAnalysis, Upload } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const route = useRoute()

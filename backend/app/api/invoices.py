@@ -12,12 +12,12 @@ from app.utils import get_current_user
 router = APIRouter()
 
 
-def generate_invoice_no():
-    """生成发票号（格式：INV + 年月日 + 4位序号）"""
-    from app.models import Invoice
+@router.get("/next-no")
+def get_next_invoice_no(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """生成下一个发票号"""
     today = datetime.now().strftime("%Y%m%d")
-    # 查找今天最大的序号
     today_prefix = f"INV{today}"
+
     last_invoice = db.query(Invoice).filter(
         Invoice.invoice_no.like(f"{today_prefix}%")
     ).order_by(Invoice.invoice_no.desc()).first()
@@ -31,7 +31,7 @@ def generate_invoice_no():
     else:
         new_seq = 1
 
-    return f"{today_prefix}{new_seq:04d}"
+    return {"invoice_no": f"{today_prefix}{new_seq:04d}"}
 
 
 @router.get("/", response_model=PaginatedInvoicesResponse)
