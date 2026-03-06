@@ -219,3 +219,65 @@ class ImportResult(BaseModel):
     error_rows: int
     errors: List[ImportErrorLogResponse] = []
     batch_id: str
+
+
+# 发票相关
+class InvoiceItemCreate(BaseModel):
+    order_id: int
+    amount: float
+    tax_amount: float = 0
+
+
+class InvoiceItemResponse(BaseModel):
+    id: int
+    invoice_id: int
+    order_id: int
+    order_no: int
+    amount: float
+    tax_amount: float
+
+    class Config:
+        from_attributes = True
+
+
+class InvoiceCreate(BaseModel):
+    invoice_no: str
+    invoice_date: datetime
+    customer_id: int
+    total_amount: float
+    tax_amount: float = 0
+    remark: Optional[str] = None
+    items: List[InvoiceItemCreate]
+
+
+class InvoiceResponse(BaseModel):
+    id: int
+    invoice_no: str
+    invoice_date: datetime
+    customer_id: int
+    customer_name: Optional[str] = None
+    total_amount: float
+    tax_amount: float
+    status: str
+    remark: Optional[str] = None
+    created_by: int
+    creator_name: Optional[str] = None
+    created_at: datetime
+    items: List[InvoiceItemResponse] = []
+
+    class Config:
+        from_attributes = True
+
+
+class PaginatedInvoicesResponse(BaseModel):
+    items: List[dict]
+    total: int
+
+
+class OrderInvoiceInfo(BaseModel):
+    order_id: int
+    order_no: int
+    order_date: datetime
+    total_amount: float
+    invoiced_amount: float  # 已开票金额
+    balance_amount: float  # 可开票余额

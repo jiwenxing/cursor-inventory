@@ -88,6 +88,7 @@ class SalesOrder(Base):
     customer = relationship("Customer", back_populates="orders")
     salesperson = relationship("User")
     items = relationship("SalesOrderItem", back_populates="order", cascade="all, delete-orphan")
+    invoice_items = relationship("InvoiceItem", back_populates="order")
 
 class SalesOrderItem(Base):
     __tablename__ = "sales_order_items"
@@ -136,3 +137,41 @@ class ImportErrorLog(Base):
     error_message = Column(Text, nullable=False)
     row_data = Column(Text)  # JSON格式存储异常行数据
     created_at = Column(DateTime, server_default=func.now())
+
+
+class InvoiceStatus(str, enum.Enum):
+    NORMAL = "已开票"
+    CANCELLED = "已作废"
+
+
+class Invoice(Base):
+    __tablename__ = "invoices"
+
+    id = Column(Integer, primary_key=True, index=True)
+    invoice_no = Column(String(50), unique=True, nullable=False, index=True)  # 发票号
+    invoice_date = Column(DateTime, nullable=False, index=True)  # 开票日期
+    customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False)  # 客户
+    total_amount = Column(Float, nullable=False)  # 发票总金额（含税）
+    tax_amount = Column(Float, default=0)  # 税额
+    status = Column(String(20), default=InvoiceStatus.NORMAL.value)  # 状态
+    remark = Column(Text)  # 备注
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)  # 开票人
+    created_at = Column(DateTime, server_default=func.now())
+
+    customer = relationship("Customer")
+    creator = relationship("User")
+    items = relationship("InvoiceItem", back_populates="invoice", cascade="all, delete-orphan")
+
+
+class InvoiceItem(Base):
+    __tablename__ = "invoice_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    invoice_id = Column(Integer, ForeignKey("invoices.id"), nullable=False)  # 发票ID
+    order_id = Column(Integer, ForeignKey("sales_orders.id"), nullable=False)  # 关联的订单ID
+    order_no = Column(Integer, nullable=False)  # 订单号（冗余）
+    amount = Column(Float, nullable=False)  # 本次开票金额
+    tax_amount = Column(Float, default=0)  # 本次税额
+
+    invoice = relationship("Invoice", back_populates="items")
+    order = relationship("SalesOrder")

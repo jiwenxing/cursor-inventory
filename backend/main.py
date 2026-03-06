@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api import auth, customers, suppliers, products, sales_orders, inventory, import_excel, statistics
+from app.api import auth, customers, suppliers, products, sales_orders, inventory, import_excel, statistics, invoices
 from app.database import engine, Base
 import logging
 
@@ -27,6 +27,7 @@ app.include_router(customers.router, prefix="/api/customers", tags=["客户管�
 app.include_router(suppliers.router, prefix="/api/suppliers", tags=["供应商管理"])
 app.include_router(products.router, prefix="/api/products", tags=["商品管理"])
 app.include_router(sales_orders.router, prefix="/api/sales-orders", tags=["销售订单"])
+app.include_router(invoices.router, prefix="/api/invoices", tags=["发票管理"])
 app.include_router(inventory.router, prefix="/api/inventory", tags=["库存管理"])
 app.include_router(import_excel.router, prefix="/api/import", tags=["Excel导入"])
 app.include_router(statistics.router, prefix="/api/statistics", tags=["统计报表"])
