@@ -5,6 +5,88 @@
       <el-button type="primary" @click="handleAdd">新增订单</el-button>
     </div>
 
+    <!-- 搜索过滤区域 -->
+    <div class="search-box">
+      <el-row :gutter="15" style="margin-bottom: 15px;">
+        <el-col :span="4">
+          <el-select
+            v-model="searchForm.customer_id"
+            placeholder="选择客户"
+            filterable
+            clearable
+            @change="handleSearch"
+            style="width: 100%"
+          >
+            <el-option
+              v-for="c in customers"
+              :key="c.id"
+              :label="c.name"
+              :value="c.id"
+            />
+          </el-select>
+        </el-col>
+        <el-col :span="4">
+          <el-select
+            v-model="searchForm.payment_status"
+            placeholder="付款状态"
+            clearable
+            @change="handleSearch"
+            style="width: 100%"
+          >
+            <el-option label="未付款" value="未付款" />
+            <el-option label="部分付款" value="部分付款" />
+            <el-option label="已付款" value="已付款" />
+          </el-select>
+        </el-col>
+        <el-col :span="6">
+          <el-date-picker
+            v-model="searchForm.dateRange"
+            type="daterange"
+            range-separator="至"
+            start-placeholder="开始日期"
+            end-placeholder="结束日期"
+            value-format="YYYY-MM-DD"
+            @change="handleDateRangeChange"
+            style="width: 100%"
+          />
+        </el-col>
+        <el-col :span="2">
+          <el-button-group>
+            <el-button @click="setQuickDate('today')">今天</el-button>
+            <el-button @click="setQuickDate('week')">近一周</el-button>
+            <el-button @click="setQuickDate('month')">近一月</el-button>
+          </el-button-group>
+        </el-col>
+        <el-col :span="2">
+          <el-button-group>
+            <el-button @click="setQuickDate('3months')">3个月</el-button>
+            <el-button @click="setQuickDate('halfyear')">半年</el-button>
+          </el-button-group>
+        </el-col>
+        <el-col :span="3">
+          <el-button @click="handleReset" plain>重置</el-button>
+        </el-col>
+        <el-col :span="3">
+          <el-input
+            v-model.number="searchForm.min_amount"
+            placeholder="最小金额"
+            type="number"
+            clearable
+            @change="handleSearch"
+          />
+        </el-col>
+        <el-col :span="3">
+          <el-input
+            v-model.number="searchForm.max_amount"
+            placeholder="最大金额"
+            type="number"
+            clearable
+            @change="handleSearch"
+          />
+        </el-col>
+      </el-row>
+    </div>
+
     <el-table :data="orders" style="width: 100%; table-layout: fixed;" v-loading="loading" row-key="id">
       <el-table-column type="expand" width="50">
         <template #default="{ row }">
@@ -42,13 +124,14 @@
         </template>
       </el-table-column>
       <el-table-column prop="customer_name" label="客户" show-overflow-tooltip />
+      <el-table-column prop="salesperson_name" label="销售员" width="80" />
       <el-table-column prop="total_amount" label="订单金额" width="100">
         <template #default="{ row }">
           ¥{{ row.total_amount.toFixed(2) }}
         </template>
       </el-table-column>
       <el-table-column prop="payment_status" label="付款状态" width="90" />
-      <el-table-column label="操作" width="180" fixed="right">
+      <el-table-column label="操作" width="150" fixed="right">
         <template #default="{ row }">
           <el-button size="small" link @click="handleView(row)">查看</el-button>
           <el-button size="small" link type="primary" @click="handleEdit(row)">编辑</el-button>
@@ -56,6 +139,18 @@
         </template>
       </el-table-column>
     </el-table>
+
+    <div class="pagination-container">
+      <el-pagination
+        v-model:current-page="currentPage"
+        v-model:page-size="pageSize"
+        :page-sizes="[15, 30, 50, 100]"
+        :total="total"
+        layout="total, sizes, prev, pager, next, jumper"
+        @size-change="handleSizeChange"
+        @current-change="handleCurrentChange"
+      />
+    </div>
 
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="900px">
       <el-form :model="form" ref="formRef" label-width="100px">
@@ -163,6 +258,22 @@ const dialogTitle = ref('新增订单')
 const formRef = ref(null)
 const editingId = ref(null)
 
+// 分页相关
+const total = ref(0)
+const currentPage = ref(1)
+const pageSize = ref(15)
+
+// 搜索表单
+const searchForm = reactive({
+  customer_id: undefined,
+  payment_status: '',
+  dateRange: [],
+  start_date: '',
+  end_date: '',
+  min_amount: undefined,
+  max_amount: undefined
+})
+
 const form = reactive({
   order_date: new Date(),
   customer_id: null,
@@ -175,11 +286,88 @@ const formatDate = (date) => {
   return dayjs(date).format('YYYY-MM-DD HH:mm')
 }
 
+// 快速选择日期
+const setQuickDate = (type) => {
+  const now = dayjs()
+  let start, end
+
+  switch (type) {
+    case 'today':
+      start = now.format('YYYY-MM-DD')
+      end = now.format('YYYY-MM-DD')
+      break
+    case 'week':
+      start = now.subtract(1, 'week').format('YYYY-MM-DD')
+      end = now.format('YYYY-MM-DD')
+      break
+    case 'month':
+      start = now.subtract(1, 'month').format('YYYY-MM-DD')
+      end = now.format('YYYY-MM-DD')
+      break
+    case '3months':
+      start = now.subtract(3, 'month').format('YYYY-MM-DD')
+      end = now.format('YYYY-MM-DD')
+      break
+    case 'halfyear':
+      start = now.subtract(6, 'month').format('YYYY-MM-DD')
+      end = now.format('YYYY-MM-DD')
+      break
+  }
+
+  searchForm.dateRange = [start, end]
+  searchForm.start_date = start
+  searchForm.end_date = end
+  handleSearch()
+}
+
+// 日期范围变化
+const handleDateRangeChange = (val) => {
+  if (val && val.length === 2) {
+    searchForm.start_date = val[0]
+    searchForm.end_date = val[1]
+  } else {
+    searchForm.start_date = ''
+    searchForm.end_date = ''
+  }
+  handleSearch()
+}
+
+// 获取搜索参数
+const getSearchParams = () => {
+  const params = {}
+  if (searchForm.customer_id !== undefined && searchForm.customer_id !== '') {
+    params.customer_id = searchForm.customer_id
+  }
+  if (searchForm.payment_status) {
+    params.payment_status = searchForm.payment_status
+  }
+  if (searchForm.start_date) {
+    params.start_date = searchForm.start_date
+  }
+  if (searchForm.end_date) {
+    params.end_date = searchForm.end_date
+  }
+  if (searchForm.min_amount !== undefined && searchForm.min_amount !== '') {
+    params.min_amount = searchForm.min_amount
+  }
+  if (searchForm.max_amount !== undefined && searchForm.max_amount !== '') {
+    params.max_amount = searchForm.max_amount
+  }
+  return params
+}
+
 const loadOrders = async () => {
   loading.value = true
   try {
-    const response = await api.get('/sales-orders/')
-    orders.value = response.data
+    const skip = (currentPage.value - 1) * pageSize.value
+    const params = {
+      ...getSearchParams(),
+      skip,
+      limit: pageSize.value
+    }
+    const response = await api.get('/sales-orders/', { params })
+    orders.value = response.data.items
+    total.value = response.data.total
   } catch (error) {
     ElMessage.error('加载订单列表失败')
   } finally {
@@ -187,10 +375,38 @@ const loadOrders = async () => {
   }
 }
 
+const handleSearch = () => {
+  currentPage.value = 1
+  loadOrders()
+}
+
+const handleReset = () => {
+  searchForm.customer_id = undefined
+  searchForm.payment_status = ''
+  searchForm.dateRange = []
+  searchForm.start_date = ''
+  searchForm.end_date = ''
+  searchForm.min_amount = undefined
+  searchForm.max_amount = undefined
+  currentPage.value = 1
+  loadOrders()
+}
+
+const handleSizeChange = (val) => {
+  pageSize.value = val
+  currentPage.value = 1
+  loadOrders()
+}
+
+const handleCurrentChange = (val) => {
+  currentPage.value = val
+  loadOrders()
+}
+
 const loadCustomers = async () => {
   try {
-    const response = await api.get('/customers/')
-    customers.value = response.data
+    const response = await api.get('/customers/', { params: { limit: 1000 } })
+    customers.value = response.data.items
   } catch (error) {
     console.error('加载客户列表失败', error)
   }
@@ -198,8 +414,8 @@ const loadCustomers = async () => {
 
 const loadProducts = async () => {
   try {
-    const response = await api.get('/products/')
-    products.value = response.data
+    const response = await api.get('/products/', { params: { limit: 1000 } })
+    products.value = response.data.items
   } catch (error) {
     console.error('加载商品列表失败', error)
   }
@@ -341,6 +557,21 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 15px;
+}
+
+.search-box {
+  background-color: #f5f7fa;
+  padding: 15px;
+  border-radius: 4px;
+  margin-bottom: 15px;
+}
+
+.pagination-container {
+  display: flex;
+  justify-content: flex-end;
+  padding: 15px 0 0 0;
+  margin-top: 15px;
+  border-top: 1px solid #ebeef5;
 }
 
 :deep(.el-table__body-wrapper) {
