@@ -13,10 +13,10 @@
 ```bash
 # 后端
 cd backend
-python -m venv venv
+python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-python init_db.py                    # 初始化数据库，默认管理员 (admin/admin123)
+python3 init_db.py                    # 初始化数据库，默认管理员 (admin/admin123)
 uvicorn main:app --reload --port 8000
 
 # 前端
@@ -24,89 +24,35 @@ cd frontend
 npm install
 npm run dev
 
-# 运行测试
-cd backend && pytest tests/test_excel_import.py -v -s
-# 或使用: ./backend/run_tests.sh
-```
-
-### Docker 部署
-
-```bash
-docker-compose --profile init run --rm init-db   # 初始化数据库
-docker-compose up -d                              # 启动服务
-```
-
-- 前端: http://localhost:3000
-- 后端API: http://localhost:8000
-- API文档: http://localhost:8000/docs
-
-## 架构
-
-### 后端 (FastAPI + SQLAlchemy + SQLite)
+# 重置数据库测试数据待补充
 
 ```
-backend/
-├── main.py              # FastAPI入口，注册所有路由
-├── app/
-│   ├── api/             # 路由处理器 (auth, customers, products, sales_orders, inventory, import_excel, statistics)
-│   ├── models.py         # SQLAlchemy ORM模型 (8张表)
-│   ├── schemas.py       # Pydantic 请求/响应模型
-│   ├── database.py      # SQLite连接 (存储在 backend/data/app.db)
-│   └── utils.py         # JWT认证、密码加密
-└── init_db.py           # 数据库初始化脚本
-```
 
-### 前端 (Vue3 + Vite + Pinia)
+## 开发规范
 
-```
-frontend/src/
-├── views/               # 页面组件 (Login, Dashboard, Customers, Products, SalesOrders, Inventory, Statistics, Import)
-├── stores/              # Pinia状态管理 (auth.js)
-├── router/              # Vue Router路由配置，含权限守卫
-├── api/                 # Axios封装，自动注入Token
-├── main.js              # Vue应用入口
-└── App.vue              # 主布局 (侧边栏 + 头部)
-```
+### 代码修改原则
+- 数据库 Schema 变更后必须同步更新 models.py 和 schemas.py
 
-## 数据库表
+### 代码风格
+- 后端：遵循项目现有的 SQLAlchemy ORM 风格，不引入原生 SQL
 
-| 表名 | 用途 |
-|------|------|
-| users | 用户账户 |
-| customers | 客户信息 |
-| products | 商品目录 (型号必须唯一) |
-| sales_orders | 销售订单主表 |
-| sales_order_items | 销售订单明细 |
-| inventory_records | 库存流水 (IN/OUT) |
-| inventory_summary | 各商品当前库存 |
-| import_error_logs | Excel导入错误日志 |
+### 禁止事项
+- 不引入新的重量级依赖（项目定位是简单系统）
+- 暂时不修改 JWT 认证逻辑（在 utils.py 中）除非明确要求
+
+## 已知问题 & 注意事项
+- SQLite 并发写入有限制，不适合高并发场景（这是设计取舍，勿优化）
+- 系统暂时还未上线，数据库 Schema 可能随时变更，但是系统设计要考虑到未来可能的扩展
 
 ## 关键业务规则
 
-### 库存计算
-- 库存通过流水记录计算: `current_stock = SUM(IN) - SUM(OUT)`
-- **禁止直接修改 inventory_summary**
-- 销售订单自动生成OUT流水
-- 入库操作生成IN流水
-- 删除订单自动回滚库存
+### 发票管理
+- 分为销售发票和进项发票
+- 不做复杂的税控系统
+- 只做开票记录管理
+- 做可开票余额计算
+- 做进销匹配分析
 
-### 金额计算
-```
-final_unit_price_tax = unit_price_tax × (1 - discount_rate)
-line_total = quantity × final_unit_price_tax
-order.total_amount = sum(line_total)
-```
 
-### Excel导入校验
-检测: 库存为负、金额计算错误、发货数量 > 订货数量、型号品牌冲突、合同金额不匹配、必填字段为空
 
-## API路由
 
-- `POST /api/auth/login` - 用户登录
-- `GET/POST /api/customers/` - 客户管理
-- `GET/POST /api/products/` - 商品管理 (型号唯一)
-- `GET/POST /api/sales-orders/` - 销售订单管理
-- `GET /api/inventory/summary` - 库存汇总查询
-- `POST /api/inventory/in` - 入库操作
-- `POST /api/import/excel` - Excel导入(含校验)
-- `GET /api/statistics/receivables` - 应收款统计

@@ -3,11 +3,23 @@
 创建管理员账号
 生成测试数据
 """
+from sqlalchemy import text
 from app.database import SessionLocal, engine, Base
 from app.models import User, Customer, Supplier, Product, SalesOrder, SalesOrderItem, InventoryRecord, InventorySummary, Invoice, InvoiceItem
 from app.utils import get_password_hash
 from datetime import datetime, timedelta
 import random
+
+
+# 所有需要设置起始ID的表
+AUTOINCREMENT_TABLES = [
+    "users", "customers", "suppliers", "products",
+    "sales_orders", "sales_order_items", "inventory_records",
+    "import_error_logs", "invoices", "invoice_items"
+]
+
+# ID起始值
+ID_START_VALUE = 12599999
 
 
 def init_db():
@@ -34,10 +46,22 @@ def init_db():
         # 检查是否已有数据
         if db.query(Customer).first():
             print("✓ 数据库已有数据，跳过测试数据生成")
+            # 仍然设置ID起始值
+            for table_name in AUTOINCREMENT_TABLES:
+                db.execute(text(f"UPDATE sqlite_sequence SET seq = {ID_START_VALUE} WHERE name = '{table_name}'"))
+            db.commit()
             return
 
         # 生成测试数据
         generate_test_data(db)
+
+        db.commit()
+
+        # 设置所有自增表的起始ID（确保下一个ID从12600000开始）
+        for table_name in AUTOINCREMENT_TABLES:
+            db.execute(text(f"UPDATE sqlite_sequence SET seq = {ID_START_VALUE} WHERE name = '{table_name}'"))
+        db.commit()
+        print(f"✓ 设置所有表ID起始值为 {ID_START_VALUE}")
 
     except Exception as e:
         print(f"✗ 初始化失败：{e}")

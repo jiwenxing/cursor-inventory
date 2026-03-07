@@ -16,7 +16,7 @@ class InventoryType(str, enum.Enum):
 class User(Base):
     __tablename__ = "users"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     username = Column(String(50), unique=True, index=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
     name = Column(String(100))
@@ -25,7 +25,7 @@ class User(Base):
 class Customer(Base):
     __tablename__ = "customers"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     name = Column(String(200), nullable=False, index=True)
     contact = Column(String(100))
     phone = Column(String(50))
@@ -39,7 +39,7 @@ class Customer(Base):
 class Supplier(Base):
     __tablename__ = "suppliers"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     name = Column(String(200), nullable=False, index=True)
     contact = Column(String(100))
     phone = Column(String(50))
@@ -57,7 +57,7 @@ class Product(Base):
         UniqueConstraint('brand', 'model', name='uq_brand_model'),
     )
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     name = Column(String(200), nullable=False)
     model = Column(String(100), nullable=False, index=True)
     brand = Column(String(100))
@@ -76,7 +76,7 @@ class Product(Base):
 class SalesOrder(Base):
     __tablename__ = "sales_orders"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     order_date = Column(DateTime, nullable=False, index=True)
     customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False)
     salesperson_id = Column(Integer, ForeignKey("users.id"), nullable=False)
@@ -93,7 +93,7 @@ class SalesOrder(Base):
 class SalesOrderItem(Base):
     __tablename__ = "sales_order_items"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     order_id = Column(Integer, ForeignKey("sales_orders.id"), nullable=False)
     product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
     quantity = Column(Float, nullable=False)
@@ -110,7 +110,7 @@ class SalesOrderItem(Base):
 class InventoryRecord(Base):
     __tablename__ = "inventory_records"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
     type = Column(String(10), nullable=False)  # IN / OUT
     quantity = Column(Float, nullable=False)
@@ -131,7 +131,7 @@ class InventorySummary(Base):
 class ImportErrorLog(Base):
     __tablename__ = "import_error_logs"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     import_batch_id = Column(String(50), index=True)
     error_type = Column(String(50), nullable=False)
     error_message = Column(Text, nullable=False)
@@ -147,7 +147,7 @@ class InvoiceStatus(str, enum.Enum):
 class Invoice(Base):
     __tablename__ = "invoices"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     invoice_no = Column(String(50), unique=True, nullable=False, index=True)  # 发票号
     invoice_date = Column(DateTime, nullable=False, index=True)  # 开票日期
     customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False)  # 客户
@@ -166,7 +166,7 @@ class Invoice(Base):
 class InvoiceItem(Base):
     __tablename__ = "invoice_items"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     invoice_id = Column(Integer, ForeignKey("invoices.id"), nullable=False)  # 发票ID
     order_id = Column(Integer, ForeignKey("sales_orders.id"), nullable=False)  # 关联的订单ID
     order_no = Column(Integer, nullable=False)  # 订单号（冗余）

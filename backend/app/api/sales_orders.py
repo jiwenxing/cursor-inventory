@@ -287,6 +287,9 @@ def delete_sales_order(order_id: int, db: Session = Depends(get_db), current_use
     # 删除库存流水
     db.query(InventoryRecord).filter(InventoryRecord.related_order_id == order_id).delete()
 
+    # 删除关联的发票项目
+    db.query(InvoiceItem).filter(InvoiceItem.order_id == order_id).delete()
+
     # 删除订单（级联删除明细）
     db.delete(db_order)
     db.commit()

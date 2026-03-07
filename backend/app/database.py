@@ -23,6 +23,7 @@ engine = create_engine(
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
+Base.__table_args__ = {'sqlite_autoincrement': True}
 
 def get_db():
     db = SessionLocal()

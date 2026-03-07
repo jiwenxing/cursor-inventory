@@ -191,10 +191,10 @@
         </el-row>
 
         <el-divider>订单明细</el-divider>
-        <el-table :data="form.items" border>
-          <el-table-column label="商品" width="200">
+        <el-table :data="form.items" border style="width: 100%">
+          <el-table-column label="商品" min-width="120" resizable>
             <template #default="{ row, $index }">
-              <el-select v-model="row.product_id" filterable @change="handleProductChange($index)">
+              <el-select v-model="row.product_id" filterable placeholder="选择商品" style="width: 100%" @change="handleProductChange($index)">
                 <el-option
                   v-for="product in products"
                   :key="product.id"
@@ -204,19 +204,19 @@
               </el-select>
             </template>
           </el-table-column>
-          <el-table-column label="数量" width="100">
+          <el-table-column label="数量" width="110" align="center">
             <template #default="{ row, $index }">
-              <el-input-number v-model="row.quantity" :min="0.01" :precision="2" @change="calculateItem($index)" />
+              <el-input-number v-model="row.quantity" :min="1" :step="1" size="small" style="width: 90%" controls-position="right" @change="calculateItem($index)" />
             </template>
           </el-table-column>
-          <el-table-column label="单价（含税）" width="120">
+          <el-table-column label="单价（含税）" width="145" align="center">
             <template #default="{ row, $index }">
-              <el-input-number v-model="row.unit_price_tax" :min="0" :precision="2" @change="calculateItem($index)" />
+              <el-input-number v-model="row.unit_price_tax" :min="0" :precision="2" size="small" controls-position="right" @change="calculateItem($index)" />
             </template>
           </el-table-column>
-          <el-table-column label="折扣率" width="100">
+          <el-table-column label="折扣率" width="130" align="center">
             <template #default="{ row, $index }">
-              <el-input-number v-model="row.discount_rate" :min="-1" :max="1" :step="0.01" :precision="2" @change="calculateItem($index)" />
+              <el-input-number v-model="row.discount_rate" :min="-1" :max="1" :step="0.01" :precision="2" size="small" style="width: 90%" controls-position="right" @change="calculateItem($index)" />
             </template>
           </el-table-column>
           <el-table-column label="行金额" width="120">
@@ -498,7 +498,7 @@ const removeItem = (index) => {
 const handleProductChange = (index) => {
   const product = products.value.find(p => p.id === form.items[index].product_id)
   if (product) {
-    form.items[index].unit_price_tax = 0
+    form.items[index].unit_price_tax = product.retail_price || 0
     calculateItem(index)
   }
 }
