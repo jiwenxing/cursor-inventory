@@ -105,33 +105,33 @@
           </div>
         </template>
       </el-table-column>
-      <el-table-column prop="id" label="订单号" width="70" />
-      <el-table-column prop="order_date" label="订单日期" width="130">
+      <el-table-column prop="id" label="订单号" width="100" />
+      <el-table-column prop="order_date" label="订单日期" width="160">
         <template #default="{ row }">
           {{ formatDate(row.order_date) }}
         </template>
       </el-table-column>
       <el-table-column prop="customer_name" label="客户" show-overflow-tooltip />
-      <el-table-column prop="salesperson_name" label="销售员" width="80" />
-      <el-table-column prop="total_amount" label="订单金额" width="100">
+      <el-table-column prop="salesperson_name" label="销售员" width="100" />
+      <el-table-column prop="total_amount" label="订单金额" width="110">
         <template #default="{ row }">
           ¥{{ row.total_amount?.toFixed(2) }}
         </template>
       </el-table-column>
-      <el-table-column label="已开票" width="90">
+      <el-table-column label="已开票" width="110">
         <template #default="{ row }">
           <span style="color: #909399;">¥{{ (row.invoiced_amount || 0).toFixed(2) }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="可开票" width="90">
+      <el-table-column label="可开票" width="110">
         <template #default="{ row }">
           <span :style="{ color: (row.balance_amount || 0) > 0 ? '#67c23a' : '#909399' }">
             ¥{{ (row.balance_amount || 0).toFixed(2) }}
           </span>
         </template>
       </el-table-column>
-      <el-table-column prop="payment_status" label="付款状态" width="90" />
-      <el-table-column label="操作" width="150" fixed="right">
+      <el-table-column prop="payment_status" label="付款状态" width="110" />
+      <el-table-column label="操作" width="180" fixed="right">
         <template #default="{ row }">
           <el-button size="small" link @click="handleView(row)">查看</el-button>
           <el-button size="small" link type="primary" @click="handleEdit(row)">编辑</el-button>
