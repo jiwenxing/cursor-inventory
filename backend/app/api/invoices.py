@@ -117,6 +117,23 @@ def get_invoice(invoice_id: int, db: Session = Depends(get_db), current_user: Us
     if not invoice:
         raise HTTPException(status_code=404, detail="发票不存在")
 
+    # 查询每个订单的详细信息
+    items_data = []
+    for item in invoice.items:
+        order = db.query(SalesOrder).filter(SalesOrder.id == item.order_id).first()
+        items_data.append({
+            "id": item.id,
+            "invoice_id": item.invoice_id,
+            "order_id": item.order_id,
+            "order_no": item.order_no,
+            "order_date": order.order_date if order else None,
+            "customer_name": order.customer.name if order and order.customer else None,
+            "order_total_amount": order.total_amount if order else 0,
+            "contract_amount": order.contract_amount if order else 0,
+            "amount": item.amount,
+            "tax_amount": item.tax_amount
+        })
+
     return {
         "id": invoice.id,
         "invoice_no": invoice.invoice_no,
@@ -130,14 +147,7 @@ def get_invoice(invoice_id: int, db: Session = Depends(get_db), current_user: Us
         "created_by": invoice.created_by,
         "creator_name": invoice.creator.name if invoice.creator else None,
         "created_at": invoice.created_at,
-        "items": [{
-            "id": item.id,
-            "invoice_id": item.invoice_id,
-            "order_id": item.order_id,
-            "order_no": item.order_no,
-            "amount": item.amount,
-            "tax_amount": item.tax_amount
-        } for item in invoice.items]
+        "items": items_data
     }
 
 

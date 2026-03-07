@@ -233,6 +233,10 @@ class InvoiceItemResponse(BaseModel):
     invoice_id: int
     order_id: int
     order_no: int
+    order_date: Optional[datetime] = None
+    customer_name: Optional[str] = None
+    order_total_amount: Optional[float] = None
+    contract_amount: Optional[float] = None
     amount: float
     tax_amount: float
 

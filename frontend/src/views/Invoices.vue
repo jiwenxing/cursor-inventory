@@ -53,8 +53,8 @@
     </div>
 
     <el-table :data="invoices" style="width: 100%" v-loading="loading" row-key="id">
-      <el-table-column prop="invoice_no" label="发票号" width="150" />
-      <el-table-column prop="invoice_date" label="开票日期" width="120">
+      <el-table-column prop="invoice_no" label="发票号" width="160" />
+      <el-table-column prop="invoice_date" label="开票日期" width="160">
         <template #default="{ row }">
           {{ formatDate(row.invoice_date) }}
         </template>
@@ -144,8 +144,8 @@
         <!-- 可开票订单列表（新增时显示） -->
         <div v-if="!editingId && form.customer_id" style="margin-top: 20px;">
           <el-divider>选择要开票的订单</el-divider>
-          <el-table :data="availableOrders" border size="small" max-height="250">
-            <el-table-column width="50">
+          <el-table :data="availableOrders" border size="small" max-height="250" style="width: 100%">
+            <el-table-column width="50" align="center">
               <template #default="{ row, $index }">
                 <el-checkbox
                   v-model="row.selected"
@@ -153,28 +153,28 @@
                 />
               </template>
             </el-table-column>
-            <el-table-column prop="order_no" label="订单号" width="80" />
-            <el-table-column prop="order_date" label="订单日期" width="120">
+            <el-table-column prop="order_no" label="订单号" width="100" align="center" />
+            <el-table-column prop="order_date" label="订单日期" width="130" align="center">
               <template #default="{ row }">
                 {{ formatDate(row.order_date) }}
               </template>
             </el-table-column>
-            <el-table-column prop="total_amount" label="订单金额" width="100">
+            <el-table-column prop="total_amount" label="订单金额" width="110" align="right">
               <template #default="{ row }">
                 ¥{{ row.total_amount.toFixed(2) }}
               </template>
             </el-table-column>
-            <el-table-column prop="invoiced_amount" label="已开票" width="90">
+            <el-table-column prop="invoiced_amount" label="已开票" width="100" align="right">
               <template #default="{ row }">
                 ¥{{ row.invoiced_amount.toFixed(2) }}
               </template>
             </el-table-column>
-            <el-table-column prop="balance_amount" label="可开票" width="90">
+            <el-table-column prop="balance_amount" label="可开票" width="100" align="right">
               <template #default="{ row }">
                 <span style="color: #67c23a; font-weight: bold;">¥{{ row.balance_amount.toFixed(2) }}</span>
               </template>
             </el-table-column>
-            <el-table-column label="本次开票" width="120">
+            <el-table-column label="本次开票" min-width="140" align="center">
               <template #default="{ row }">
                 <el-input-number
                   v-model="row.invoice_amount"
@@ -257,13 +257,28 @@
 
       <el-divider>关联订单</el-divider>
       <el-table :data="viewData.items" border size="small">
-        <el-table-column prop="order_no" label="订单号" width="100" />
-        <el-table-column prop="amount" label="开票金额" width="120">
+        <el-table-column prop="order_no" label="订单号" width="80" />
+        <el-table-column prop="order_date" label="订单日期" width="120">
+          <template #default="{ row }">
+            {{ row.order_date ? formatDate(row.order_date).split(' ')[0] : '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="order_total_amount" label="订单金额" width="100">
+          <template #default="{ row }">
+            ¥{{ row.order_total_amount?.toFixed(2) }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="contract_amount" label="合同金额" width="100">
+          <template #default="{ row }">
+            ¥{{ row.contract_amount?.toFixed(2) }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="amount" label="开票金额" width="100">
           <template #default="{ row }">
             ¥{{ row.amount?.toFixed(2) }}
           </template>
         </el-table-column>
-        <el-table-column prop="tax_amount" label="税额" width="100">
+        <el-table-column prop="tax_amount" label="税额" width="80">
           <template #default="{ row }">
             ¥{{ row.tax_amount?.toFixed(2) }}
           </template>
