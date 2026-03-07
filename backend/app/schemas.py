@@ -151,7 +151,7 @@ class SalesOrderItemResponse(BaseModel):
 class SalesOrderCreate(BaseModel):
     order_date: datetime
     customer_id: int
-    contract_amount: float = 0
+    contract_amount: Optional[float] = None
     payment_status: str = "未付款"
     items: List[SalesOrderItemCreate]
 
