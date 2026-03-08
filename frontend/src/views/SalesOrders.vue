@@ -131,10 +131,21 @@
         </template>
       </el-table-column>
       <el-table-column prop="payment_status" label="付款状态" width="110" />
-      <el-table-column label="操作" width="180" fixed="right">
+      <el-table-column label="已付/未付" width="160">
+        <template #default="{ row }">
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <span style="color: #67c23a;">已付：¥{{ (row.paid_amount || 0).toFixed(2) }}</span>
+            <span :style="{ color: (row.unpaid_amount || 0) > 0 ? '#f56c6c' : '#909399' }">
+              未付：¥{{ (row.unpaid_amount || 0).toFixed(2) }}
+            </span>
+          </div>
+        </template>
+      </el-table-column>
+      <el-table-column label="操作" width="230" fixed="right">
         <template #default="{ row }">
           <el-button size="small" link @click="handleView(row)">查看</el-button>
           <el-button size="small" link type="primary" @click="handleEdit(row)">编辑</el-button>
+          <el-button size="small" link type="success" @click="handlePayment(row)">收款</el-button>
           <el-button size="small" link type="danger" @click="handleDelete(row)">删除</el-button>
         </template>
       </el-table-column>
@@ -240,6 +251,79 @@
         <el-button type="primary" @click="handleSubmit">确定</el-button>
       </template>
     </el-dialog>
+
+    <!-- 收款记录对话框 -->
+    <el-dialog v-model="paymentDialogVisible" title="收款记录" width="900px">
+      <div v-if="currentOrder" style="margin-bottom: 20px;">
+        <el-descriptions title="订单信息" :column="3" border>
+          <el-descriptions-item label="订单号">{{ currentOrder.id }}</el-descriptions-item>
+          <el-descriptions-item label="客户">{{ currentOrder.customer_name }}</el-descriptions-item>
+          <el-descriptions-item label="订单日期">{{ formatDate(currentOrder.order_date) }}</el-descriptions-item>
+          <el-descriptions-item label="订单金额">¥{{ (currentOrder.total_amount || 0).toFixed(2) }}</el-descriptions-item>
+          <el-descriptions-item label="已付金额">¥{{ (currentOrder.paid_amount || 0).toFixed(2) }}</el-descriptions-item>
+          <el-descriptions-item label="未付金额">¥{{ (currentOrder.unpaid_amount || 0).toFixed(2) }}</el-descriptions-item>
+        </el-descriptions>
+      </div>
+
+      <!-- 新增收款 -->
+      <el-form :model="paymentForm" ref="paymentFormRef" label-width="100px" style="margin-bottom: 20px;">
+        <el-row :gutter="20">
+          <el-col :span="8">
+            <el-form-item label="收款金额" prop="amount">
+              <el-input-number v-model="paymentForm.amount" :min="0" :precision="2" style="width: 100%" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="收款日期" prop="payment_date">
+              <el-date-picker v-model="paymentForm.payment_date" type="datetime" style="width: 100%" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="收款方式" prop="payment_method">
+              <el-select v-model="paymentForm.payment_method" style="width: 100%">
+                <el-option label="银行转账" value="银行转账" />
+                <el-option label="现金" value="现金" />
+                <el-option label="承兑汇票" value="承兑汇票" />
+                <el-option label="支票" value="支票" />
+                <el-option label="其他" value="其他" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="20">
+          <el-col :span="20">
+            <el-form-item label="备注" prop="remark">
+              <el-input v-model="paymentForm.remark" placeholder="请输入备注" style="width: 100%" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="4">
+            <el-button type="primary" @click="handleAddPayment" style="width: 100%">添加收款</el-button>
+          </el-col>
+        </el-row>
+      </el-form>
+
+      <!-- 收款记录列表 -->
+      <el-table :data="paymentRecords" style="width: 100%" max-height="400">
+        <el-table-column prop="payment_date" label="收款日期" width="160">
+          <template #default="{ row }">
+            {{ formatDate(row.payment_date) }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="payment_method" label="收款方式" width="100" />
+        <el-table-column prop="amount" label="收款金额" width="120">
+          <template #default="{ row }">
+            <span style="color: #67c23a;">¥{{ row.amount?.toFixed(2) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="remark" label="备注" show-overflow-tooltip />
+        <el-table-column prop="creator_name" label="创建人" width="100" />
+        <el-table-column label="操作" width="80">
+          <template #default="{ row }">
+            <el-button size="small" type="danger" link @click="handleDeletePayment(row)">删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-dialog>
   </div>
 </template>
 
@@ -254,9 +338,13 @@ const customers = ref([])
 const products = ref([])
 const loading = ref(false)
 const dialogVisible = ref(false)
+const paymentDialogVisible = ref(false)
 const dialogTitle = ref('新增订单')
 const formRef = ref(null)
+const paymentFormRef = ref(null)
 const editingId = ref(null)
+const currentOrder = ref(null)
+const paymentRecords = ref([])
 
 // 分页相关
 const total = ref(0)
@@ -280,6 +368,13 @@ const form = reactive({
   contract_amount: 0,
   payment_status: '未付款',
   items: []
+})
+
+const paymentForm = reactive({
+  amount: 0,
+  payment_date: new Date(),
+  payment_method: '银行转账',
+  remark: ''
 })
 
 const formatDate = (date) => {
@@ -557,6 +652,85 @@ const handleDelete = async (row) => {
     await api.delete(`/sales-orders/${row.id}`)
     ElMessage.success('删除成功')
     loadOrders()
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(error.response?.data?.detail || '删除失败')
+    }
+  }
+}
+
+// 收款记录相关方法
+const handlePayment = async (row) => {
+  currentOrder.value = row
+  paymentForm.amount = row.unpaid_amount || 0
+  paymentForm.payment_date = new Date()
+  paymentForm.payment_method = '银行转账'
+  paymentForm.remark = ''
+  await loadPaymentRecords(row.id)
+  paymentDialogVisible.value = true
+}
+
+const loadPaymentRecords = async (orderId) => {
+  try {
+    const response = await api.get(`/payment-records/order/${orderId}`)
+    paymentRecords.value = response.data
+  } catch (error) {
+    console.error('加载收款记录失败', error)
+  }
+}
+
+const handleAddPayment = async () => {
+  if (!currentOrder.value) return
+
+  if (paymentForm.amount <= 0) {
+    ElMessage.warning('收款金额必须大于 0')
+    return
+  }
+
+  if (paymentForm.amount > (currentOrder.value.unpaid_amount || 0)) {
+    ElMessage.error('收款金额不能超过未付金额')
+    return
+  }
+
+  try {
+    const payload = {
+      order_id: currentOrder.value.id,
+      amount: paymentForm.amount,
+      payment_date: paymentForm.payment_date.toISOString(),
+      payment_method: paymentForm.payment_method,
+      remark: paymentForm.remark
+    }
+
+    await api.post('/payment-records/', payload)
+    ElMessage.success('添加收款成功')
+
+    // 刷新收款记录
+    await loadPaymentRecords(currentOrder.value.id)
+
+    // 重新获取订单详情以更新对话框中的订单信息
+    const orderResponse = await api.get(`/sales-orders/${currentOrder.value.id}`)
+    const updatedOrder = orderResponse.data
+    currentOrder.value.paid_amount = updatedOrder.paid_amount || 0
+    currentOrder.value.unpaid_amount = updatedOrder.unpaid_amount || 0
+
+    // 刷新订单列表
+    await loadOrders()
+
+    // 重置表单
+    paymentForm.amount = 0
+    paymentForm.remark = ''
+  } catch (error) {
+    ElMessage.error(error.response?.data?.detail || '添加收款失败')
+  }
+}
+
+const handleDeletePayment = async (record) => {
+  try {
+    await ElMessageBox.confirm('确定要删除该收款记录吗？', '提示', { type: 'warning' })
+    await api.delete(`/payment-records/${record.id}`)
+    ElMessage.success('删除成功')
+    await loadPaymentRecords(currentOrder.value.id)
+    await loadOrders()
   } catch (error) {
     if (error !== 'cancel') {
       ElMessage.error(error.response?.data?.detail || '删除失败')

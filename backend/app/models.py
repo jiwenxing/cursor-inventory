@@ -85,12 +85,14 @@ class SalesOrder(Base):
     contract_amount = Column(Float, default=0)
     payment_status = Column(String(20), default=PaymentStatus.UNPAID.value)
     total_amount = Column(Float, default=0)
+    paid_amount = Column(Float, default=0)  # 已付金额
     created_at = Column(DateTime, server_default=func.now())
 
     customer = relationship("Customer", back_populates="orders")
     salesperson = relationship("User")
     items = relationship("SalesOrderItem", back_populates="order", cascade="all, delete-orphan")
     invoice_items = relationship("InvoiceItem", back_populates="order")
+    payment_records = relationship("PaymentRecord", back_populates="order", cascade="all, delete-orphan")
 
 class SalesOrderItem(Base):
     __tablename__ = "sales_order_items"
@@ -178,6 +180,34 @@ class InvoiceItem(Base):
 
     invoice = relationship("Invoice", back_populates="items")
     order = relationship("SalesOrder")
+
+
+# ==================== 收款记录相关 ====================
+
+class PaymentMethod(str, enum.Enum):
+    """收款方式"""
+    BANK_TRANSFER = "银行转账"
+    CASH = "现金"
+    ACCEPTANCE_BILL = "承兑汇票"
+    CHECK = "支票"
+    OTHER = "其他"
+
+
+class PaymentRecord(Base):
+    """收款记录表"""
+    __tablename__ = "payment_records"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    order_id = Column(Integer, ForeignKey("sales_orders.id"), nullable=False, index=True)  # 关联订单 ID
+    amount = Column(Float, nullable=False)  # 收款金额
+    payment_date = Column(DateTime, nullable=False)  # 收款日期
+    payment_method = Column(String(20), default=PaymentMethod.BANK_TRANSFER.value)  # 收款方式
+    remark = Column(Text)  # 备注
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)  # 创建人
+    created_at = Column(DateTime, server_default=func.now())
+
+    order = relationship("SalesOrder", back_populates="payment_records")
+    creator = relationship("User")
 
 
 # ==================== 采购订单相关 ====================

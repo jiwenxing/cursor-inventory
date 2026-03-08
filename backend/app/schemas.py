@@ -165,6 +165,8 @@ class SalesOrderResponse(BaseModel):
     contract_amount: Optional[float] = 0.0
     payment_status: str
     total_amount: Optional[float] = 0.0
+    paid_amount: Optional[float] = 0.0  # 已付金额
+    unpaid_amount: Optional[float] = 0.0  # 未付金额（计算字段）
     created_at: datetime
     items: List[SalesOrderItemResponse] = []
 
@@ -285,6 +287,54 @@ class OrderInvoiceInfo(BaseModel):
     total_amount: float
     invoiced_amount: float  # 已开票金额
     balance_amount: float  # 可开票余额
+
+
+# ==================== 收款记录相关 ====================
+
+class PaymentRecordCreate(BaseModel):
+    """创建收款记录"""
+    order_id: int
+    amount: float
+    payment_date: datetime
+    payment_method: str = "银行转账"
+    remark: Optional[str] = None
+
+
+class PaymentRecordResponse(BaseModel):
+    """收款记录响应"""
+    id: int
+    order_id: int
+    amount: float
+    payment_date: datetime
+    payment_method: str
+    remark: Optional[str]
+    created_by: int
+    creator_name: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class PaymentRecordListResponse(BaseModel):
+    """收款记录列表（含订单信息）"""
+    id: int
+    order_id: int
+    order_no: Optional[int] = None  # 订单号
+    customer_name: Optional[str] = None  # 客户名称
+    order_total_amount: Optional[float] = None  # 订单总金额
+    order_paid_amount: Optional[float] = None  # 订单已付金额
+    order_unpaid_amount: Optional[float] = None  # 订单未付金额
+    amount: float
+    payment_date: datetime
+    payment_method: str
+    remark: Optional[str]
+    created_by: int
+    creator_name: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
 
 
 # ==================== 采购订单相关 ====================

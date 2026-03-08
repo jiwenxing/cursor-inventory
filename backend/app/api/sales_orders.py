@@ -5,7 +5,7 @@ from sqlalchemy import func
 from typing import List, Optional
 from datetime import datetime
 from app.database import get_db
-from app.models import SalesOrder, SalesOrderItem, Product, Customer, User, InventoryRecord, InventorySummary, InvoiceItem
+from app.models import SalesOrder, SalesOrderItem, Product, Customer, User, InventoryRecord, InventorySummary, InvoiceItem, PaymentRecord
 from app.schemas import SalesOrderCreate, SalesOrderResponse, SalesOrderItemResponse
 from app.utils import get_current_user
 
@@ -28,6 +28,10 @@ def order_to_dict(order: SalesOrder, db: Session = None) -> dict:
 
     balance_amount = order.total_amount - invoiced_amount
 
+    # 计算已付金额和未付金额
+    paid_amount = order.paid_amount if order.paid_amount else 0
+    unpaid_amount = order.total_amount - paid_amount
+
     return {
         "id": order.id,
         "order_date": order.order_date,
@@ -38,6 +42,8 @@ def order_to_dict(order: SalesOrder, db: Session = None) -> dict:
         "contract_amount": order.contract_amount,
         "payment_status": order.payment_status,
         "total_amount": order.total_amount,
+        "paid_amount": paid_amount,
+        "unpaid_amount": unpaid_amount,
         "invoiced_amount": invoiced_amount,
         "balance_amount": balance_amount,
         "created_at": order.created_at,

@@ -86,7 +86,7 @@
     <el-table :data="products" style="width: 100%" v-loading="loading" :default-sort="{ prop: 'id', order: 'ascending' }">
       <el-table-column prop="id" label="ID" width="70" sortable />
       <el-table-column prop="name" label="商品名称" min-width="150" show-overflow-tooltip />
-      <el-table-column prop="model" label="型号" width="120" show-overflow-tooltip />
+      <el-table-column prop="model" label="型号" width="160" show-overflow-tooltip />
       <el-table-column prop="brand" label="品牌" width="100" show-overflow-tooltip />
       <el-table-column prop="unit" label="单位" width="70" />
       <el-table-column prop="purchase_price" label="采购价" width="90" align="right">
@@ -104,7 +104,7 @@
           {{ (row.tax_rate * 100).toFixed(0) }}%
         </template>
       </el-table-column>
-      <el-table-column prop="supplier_name" label="供应商" width="120" show-overflow-tooltip />
+      <el-table-column prop="supplier_name" label="供应商" width="180" show-overflow-tooltip />
       <el-table-column label="操作" width="150" fixed="right">
         <template #default="{ row }">
           <el-button size="small" link @click="handleCopy(row)">复制</el-button>

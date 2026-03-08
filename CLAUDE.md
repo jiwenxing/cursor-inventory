@@ -65,6 +65,19 @@ rm data/app.db && python3 init_db.py
 - 做可开票余额计算
 - 做进销匹配分析
 
+### 收款管理
+- 支持一笔订单多次收款
+- 付款状态自动计算：未付款/部分付款/已付款
+- 收款记录表：`payment_records`
+- 订单表增加 `paid_amount` 字段记录已付金额
+- 删除收款记录时自动重新计算订单付款状态
+
+### 数据库迁移
+```bash
+# 添加收款功能
+python3 migrate_payment.py
+```
+
 
 
 
