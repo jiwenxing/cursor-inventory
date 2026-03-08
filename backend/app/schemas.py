@@ -285,3 +285,64 @@ class OrderInvoiceInfo(BaseModel):
     total_amount: float
     invoiced_amount: float  # 已开票金额
     balance_amount: float  # 可开票余额
+
+
+# ==================== 采购订单相关 ====================
+
+class PurchaseOrderItemCreate(BaseModel):
+    product_id: int
+    quantity: float
+    unit_price: float
+
+
+class PurchaseOrderItemResponse(BaseModel):
+    id: int
+    product_id: int
+    product_name: Optional[str] = None
+    product_model: Optional[str] = None
+    quantity: float
+    unit_price: float
+    received_quantity: float
+    unreceived_quantity: float  # 未入库数量
+    line_total: float
+
+    class Config:
+        from_attributes = True
+
+
+class PurchaseOrderCreate(BaseModel):
+    order_date: datetime
+    supplier_id: int
+    remark: Optional[str] = None
+    items: List[PurchaseOrderItemCreate]
+
+
+class PurchaseOrderResponse(BaseModel):
+    id: int
+    order_date: datetime
+    supplier_id: int
+    supplier_name: Optional[str] = None
+    purchaser_id: int
+    purchaser_name: Optional[str] = None
+    total_amount: float
+    status: str
+    remark: Optional[str] = None
+    created_at: datetime
+    items: List[PurchaseOrderItemResponse] = []
+
+    class Config:
+        from_attributes = True
+
+
+class PaginatedPurchaseOrdersResponse(BaseModel):
+    items: List[dict]
+    total: int
+
+
+class PurchaseOrderInvoiceInfo(BaseModel):
+    order_id: int
+    order_no: int
+    order_date: datetime
+    total_amount: float
+    invoiced_amount: float  # 已开票金额
+    balance_amount: float  # 可开票余额

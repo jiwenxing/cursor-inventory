@@ -16,16 +16,28 @@ cd backend
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-python3 init_db.py                    # 初始化数据库，默认管理员 (admin/admin123)
+
+# 初始化数据库（选择其一）
+python3 init_base_data.py       # 仅基础数据：客户、供应商、商品、库存
+python3 init_db.py              # 完整数据：含销售订单、采购订单、发票
+
+# 启动服务
 uvicorn main:app --reload --port 8000
 
 # 前端
 cd frontend
 npm install
 npm run dev
+```
 
-# 重置数据库测试数据待补充
+### 数据库操作
 
+```bash
+# 仅重置基础数据（保留订单、发票等）
+python3 reset_base_data.py
+
+# 完全重置（删除所有数据重新生成）
+rm data/app.db && python3 init_db.py
 ```
 
 ## 开发规范

@@ -13,9 +13,11 @@
 ### 核心功能
 - ✅ 用户登录认证（JWT）
 - ✅ 客户管理
-- ✅ 商品管理（型号唯一索引）
+- ✅ 供应商管理
+- ✅ 商品管理（品牌 + 型号联合唯一）
 - ✅ 销售订单录入（支持多商品）
-- ✅ 入库录入
+- ✅ 采购订单录入（支持多商品）
+- ✅ 入库录入（支持关联采购订单）
 - ✅ 库存查询（汇总 + 流水）
 - ✅ 销售统计（按客户/商品/时间）
 - ✅ 应收款统计
@@ -58,14 +60,29 @@ cursor-inventory/
 
 ### 核心表结构
 
-1. **users** - 用户表
-2. **customers** - 客户表
-3. **products** - 商品表（型号唯一）
-4. **sales_orders** - 销售订单主表
-5. **sales_order_items** - 销售订单明细
-6. **inventory_records** - 库存流水表
-7. **inventory_summary** - 库存汇总表
-8. **import_error_logs** - 导入异常日志表
+**基础数据:**
+- `users` - 用户表
+- `customers` - 客户表
+- `suppliers` - 供应商表
+- `products` - 商品表（品牌 + 型号联合唯一）
+
+**采购管理:**
+- `purchase_orders` - 采购订单主表
+- `purchase_order_items` - 采购订单明细
+- `purchase_invoice_items` - 进项发票关联表（预留）
+
+**销售管理:**
+- `sales_orders` - 销售订单主表
+- `sales_order_items` - 销售订单明细
+- `invoices` - 发票主表（销项）
+- `invoice_items` - 销项发票关联表
+
+**库存管理:**
+- `inventory_records` - 库存流水表
+- `inventory_summary` - 库存汇总表
+
+**其他:**
+- `import_error_logs` - Excel 导入异常日志
 
 ## 快速开始
 
@@ -88,8 +105,9 @@ venv\Scripts\activate
 # 安装依赖
 pip install -r requirements.txt
 
-# 初始化数据库（首次运行）
-python init_db.py
+# 初始化数据库（选择其一）
+python init_base_data.py       # 仅基础数据：客户、供应商、商品、库存
+python init_db.py              # 完整数据：含销售订单、采购订单、发票
 
 # 启动后端服务
 uvicorn main:app --reload --port 8000
@@ -193,13 +211,27 @@ Excel文件必须包含两个sheet：
 
 ### 数据库初始化
 
-首次运行前需要初始化数据库：
+首次运行前需要初始化数据库，可选择以下脚本：
 
 ```bash
+# 方式 1：仅基础数据（客户、供应商、商品、库存）
+python backend/init_base_data.py
+
+# 方式 2：完整测试数据（含销售订单、采购订单、发票）
 python backend/init_db.py
 ```
 
-这会创建所有表并创建默认管理员账号。
+两个脚本都会创建数据库表和默认管理员账号（admin/admin123）。
+
+### 数据库重置
+
+```bash
+# 仅重置基础数据（保留订单、发票等）
+python backend/reset_base_data.py
+
+# 完全重置（删除数据库文件重新生成）
+rm backend/data/app.db && python backend/init_db.py
+```
 
 ### 数据备份
 

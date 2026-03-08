@@ -65,7 +65,7 @@
           ¥{{ row.total_amount.toFixed(2) }}
         </template>
       </el-table-column>
-      <el-table-column prop="tax_amount" label="税额" width="90">
+      <el-table-column prop="tax_amount" label="税额" width="100">
         <template #default="{ row }">
           ¥{{ row.tax_amount.toFixed(2) }}
         </template>

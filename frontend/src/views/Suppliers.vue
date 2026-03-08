@@ -7,7 +7,7 @@
 
     <div class="search-box">
       <el-row :gutter="15">
-        <el-col :span="4">
+        <el-col :span="5">
           <el-input
             v-model="searchForm.search"
             placeholder="搜索名称、联系人、电话、邮箱..."
@@ -29,9 +29,9 @@
       <el-table-column prop="id" label="ID" width="70" sortable />
       <el-table-column prop="name" label="供应商名称" min-width="150" show-overflow-tooltip />
       <el-table-column prop="contact" label="联系人" width="100" show-overflow-tooltip />
-      <el-table-column prop="phone" label="电话" width="120" />
-      <el-table-column prop="email" label="邮箱" width="180" show-overflow-tooltip />
-      <el-table-column prop="address" label="地址" min-width="150" show-overflow-tooltip />
+      <el-table-column prop="phone" label="电话" width="140" />
+      <el-table-column prop="email" label="邮箱" width="200" show-overflow-tooltip />
+      <el-table-column prop="address" label="地址" min-width="200" show-overflow-tooltip />
       <el-table-column prop="remark" label="备注" min-width="120" show-overflow-tooltip />
       <el-table-column label="操作" width="120" fixed="right">
         <template #default="{ row }">

@@ -5,7 +5,7 @@
 """
 from sqlalchemy import text
 from app.database import SessionLocal, engine, Base
-from app.models import User, Customer, Supplier, Product, SalesOrder, SalesOrderItem, InventoryRecord, InventorySummary, Invoice, InvoiceItem
+from app.models import User, Customer, Supplier, Product, SalesOrder, SalesOrderItem, InventoryRecord, InventorySummary, Invoice, InvoiceItem, PurchaseOrder, PurchaseOrderItem
 from app.utils import get_password_hash
 from datetime import datetime, timedelta
 import random
@@ -15,7 +15,8 @@ import random
 AUTOINCREMENT_TABLES = [
     "users", "customers", "suppliers", "products",
     "sales_orders", "sales_order_items", "inventory_records",
-    "import_error_logs", "invoices", "invoice_items"
+    "import_error_logs", "invoices", "invoice_items",
+    "purchase_orders", "purchase_order_items", "purchase_invoice_items"
 ]
 
 # ID起始值
@@ -101,6 +102,89 @@ def generate_test_data(db):
     db.flush()
     print(f"✓ 创建 {len(suppliers)} 个供应商")
 
+    # 获取管理员用户（用于采购订单）
+    admin_user = db.query(User).filter(User.username == "admin").first()
+
+    # 2.5 创建采购订单
+    purchase_order_data = [
+        # 上海电气集团 - 2 个订单
+        {"supplier": suppliers[0], "days_ago": 30, "items": [(products[0], 50), (products[1], 30)], "status": "已完成"},
+        {"supplier": suppliers[0], "days_ago": 10, "items": [(products[6], 200), (products[7], 50)], "status": "部分入库"},
+
+        # 苏州精密机械厂 - 2 个订单
+        {"supplier": suppliers[1], "days_ago": 25, "items": [(products[2], 40), (products[3], 60)], "status": "已完成"},
+        {"supplier": suppliers[1], "days_ago": 5, "items": [(products[8], 100), (products[4], 30)], "status": "待入库"},
+
+        # 南京自动化公司 - 1 个订单
+        {"supplier": suppliers[2], "days_ago": 15, "items": [(products[5], 150), (products[9], 300)], "status": "部分入库"},
+    ]
+
+    for po_data in purchase_order_data:
+        order_date = datetime.now() - timedelta(days=po_data["days_ago"])
+
+        # 计算订单总金额
+        total = 0
+        order_items = []
+        for product, qty in po_data["items"]:
+            line_total = qty * product.purchase_price
+            total += line_total
+            order_items.append({
+                "product_id": product.id,
+                "quantity": qty,
+                "unit_price": product.purchase_price,
+                "line_total": line_total
+            })
+
+        # 创建采购订单
+        order = PurchaseOrder(
+            order_date=order_date,
+            supplier_id=po_data["supplier"].id,
+            purchaser_id=admin_user.id,
+            total_amount=total,
+            status=po_data["status"]
+        )
+        db.add(order)
+        db.flush()
+
+        # 创建订单明细
+        for item_data in order_items:
+            # 根据状态计算已入库数量
+            if po_data["status"] == "已完成":
+                received = item_data["quantity"]
+            elif po_data["status"] == "部分入库":
+                received = int(item_data["quantity"] * 0.6)  # 60% 已入库
+            else:
+                received = 0
+
+            item = PurchaseOrderItem(
+                order_id=order.id,
+                product_id=item_data["product_id"],
+                quantity=item_data["quantity"],
+                unit_price=item_data["unit_price"],
+                received_quantity=received,
+                line_total=item_data["line_total"]
+            )
+            db.add(item)
+
+            # 如果已入库，创建入库记录
+            if received > 0:
+                record = InventoryRecord(
+                    product_id=item_data["product_id"],
+                    type="IN",
+                    quantity=received,
+                    related_order_id=order.id,
+                    related_order_type="purchase"
+                )
+                db.add(record)
+
+                # 更新库存汇总
+                summary = db.query(InventorySummary).filter(InventorySummary.product_id == item_data["product_id"]).first()
+                if summary:
+                    summary.current_stock += received
+
+    db.commit()
+    print(f"✓ 创建 {len(purchase_order_data)} 个采购订单")
+
     # 3. 创建商品
     products = [
         Product(name="变频器", model="VFD-A", brand="松下", unit="台", tax_rate=0.13, purchase_price=800, retail_price=1200, supplier_id=suppliers[0].id),
@@ -120,7 +204,6 @@ def generate_test_data(db):
     print(f"✓ 创建 {len(products)} 个商品")
 
     # 创建入库记录（增加库存）
-    admin_user = db.query(User).filter(User.username == "admin").first()
     for p in products:
         # 每种商品入库100个
         record = InventoryRecord(

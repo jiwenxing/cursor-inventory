@@ -49,6 +49,7 @@ class Supplier(Base):
     created_at = Column(DateTime, server_default=func.now())
 
     products = relationship("Product", back_populates="supplier")
+    purchase_orders = relationship("PurchaseOrder", back_populates="supplier")
 
 
 class Product(Base):
@@ -70,6 +71,7 @@ class Product(Base):
 
     supplier = relationship("Supplier", back_populates="products")
     order_items = relationship("SalesOrderItem", back_populates="product")
+    purchase_order_items = relationship("PurchaseOrderItem", back_populates="product")
     inventory_records = relationship("InventoryRecord", back_populates="product")
     inventory_summary = relationship("InventorySummary", back_populates="product", uselist=False)
 
@@ -114,11 +116,11 @@ class InventoryRecord(Base):
     product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
     type = Column(String(10), nullable=False)  # IN / OUT
     quantity = Column(Float, nullable=False)
-    related_order_id = Column(Integer, ForeignKey("sales_orders.id"), nullable=True)
+    related_order_id = Column(Integer, nullable=True)  # 关联订单 ID（销售订单或采购订单）
+    related_order_type = Column(String(20), nullable=True)  # "sales" 或 "purchase"
     created_at = Column(DateTime, server_default=func.now(), index=True)
 
     product = relationship("Product", back_populates="inventory_records")
-    related_order = relationship("SalesOrder")
 
 class InventorySummary(Base):
     __tablename__ = "inventory_summary"
@@ -161,6 +163,7 @@ class Invoice(Base):
     customer = relationship("Customer")
     creator = relationship("User")
     items = relationship("InvoiceItem", back_populates="invoice", cascade="all, delete-orphan")
+    purchase_invoice_items = relationship("PurchaseInvoiceItem", back_populates="invoice", cascade="all, delete-orphan")  # 进项发票明细
 
 
 class InvoiceItem(Base):
@@ -175,3 +178,58 @@ class InvoiceItem(Base):
 
     invoice = relationship("Invoice", back_populates="items")
     order = relationship("SalesOrder")
+
+
+# ==================== 采购订单相关 ====================
+
+class PurchaseOrderStatus(str, enum.Enum):
+    PENDING = "待入库"
+    PARTIAL = "部分入库"
+    COMPLETED = "已完成"
+
+
+class PurchaseOrder(Base):
+    __tablename__ = "purchase_orders"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    order_date = Column(DateTime, nullable=False, index=True)  # 订单日期
+    supplier_id = Column(Integer, ForeignKey("suppliers.id"), nullable=False)  # 供应商 ID
+    purchaser_id = Column(Integer, ForeignKey("users.id"), nullable=False)  # 采购员 ID
+    total_amount = Column(Float, default=0)  # 订单总金额
+    status = Column(String(20), default=PurchaseOrderStatus.PENDING.value)  # 状态
+    remark = Column(Text)  # 备注
+    created_at = Column(DateTime, server_default=func.now())
+
+    supplier = relationship("Supplier", back_populates="purchase_orders")
+    purchaser = relationship("User")
+    items = relationship("PurchaseOrderItem", back_populates="order", cascade="all, delete-orphan")
+    invoice_items = relationship("PurchaseInvoiceItem", back_populates="order")  # 预留：进项发票关联
+
+
+class PurchaseOrderItem(Base):
+    __tablename__ = "purchase_order_items"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    order_id = Column(Integer, ForeignKey("purchase_orders.id"), nullable=False)  # 订单 ID
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)  # 商品 ID
+    quantity = Column(Float, nullable=False)  # 采购数量
+    unit_price = Column(Float, nullable=False)  # 采购单价
+    received_quantity = Column(Float, default=0)  # 已入库数量
+    line_total = Column(Float, nullable=False)  # 小计金额
+
+    order = relationship("PurchaseOrder", back_populates="items")
+    product = relationship("Product", back_populates="purchase_order_items")
+
+
+class PurchaseInvoiceItem(Base):
+    __tablename__ = "purchase_invoice_items"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    invoice_id = Column(Integer, ForeignKey("invoices.id"), nullable=False)  # 进项发票 ID
+    order_id = Column(Integer, ForeignKey("purchase_orders.id"), nullable=False)  # 关联的采购订单 ID
+    order_no = Column(Integer, nullable=False)  # 订单号（冗余）
+    amount = Column(Float, nullable=False)  # 本次开票金额
+    tax_amount = Column(Float, default=0)  # 本次税额
+
+    invoice = relationship("Invoice", back_populates="purchase_invoice_items")
+    order = relationship("PurchaseOrder")
