@@ -82,6 +82,8 @@ class SalesOrder(Base):
     order_date = Column(DateTime, nullable=False, index=True)
     customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False)
     salesperson_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    contract_no = Column(String(100))  # 合同编号
+    contract_date = Column(DateTime)  # 合同日期
     contract_amount = Column(Float, default=0)
     payment_status = Column(String(20), default=PaymentStatus.UNPAID.value)
     total_amount = Column(Float, default=0)
@@ -100,9 +102,11 @@ class SalesOrderItem(Base):
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     order_id = Column(Integer, ForeignKey("sales_orders.id"), nullable=False)
     product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    customer_product_code = Column(String(100))  # 客户商品编号
     quantity = Column(Float, nullable=False)
-    unit_price_tax = Column(Float, nullable=False)
-    discount_rate = Column(Float, default=0)  # 支持负数
+    unit_price_tax = Column(Float, nullable=False)  # 含税单价
+    discounted_price_tax = Column(Float, nullable=False)  # 含税优惠价
+    discount_rate = Column(Float, default=0)  # 折扣率（只读，由含税优惠价/含税单价计算）
     final_unit_price_tax = Column(Float, nullable=False)
     line_total = Column(Float, nullable=False)
     shipped_quantity = Column(Float, default=0)

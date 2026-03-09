@@ -137,12 +137,12 @@ npm run dev
 
 1. **初始化数据库**
 ```bash
-docker-compose --profile init run --rm init-db
+docker compose --profile init run --rm init-db
 ```
 
 2. **启动服务**
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
 3. **访问系统**

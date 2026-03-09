@@ -39,6 +39,8 @@ def order_to_dict(order: SalesOrder, db: Session = None) -> dict:
         "customer_name": order.customer.name if order.customer else None,
         "salesperson_id": order.salesperson_id,
         "salesperson_name": order.salesperson.name if order.salesperson else None,
+        "contract_no": order.contract_no,
+        "contract_date": order.contract_date,
         "contract_amount": order.contract_amount,
         "payment_status": order.payment_status,
         "total_amount": order.total_amount,
@@ -50,10 +52,12 @@ def order_to_dict(order: SalesOrder, db: Session = None) -> dict:
         "items": [{
             "id": item.id,
             "product_id": item.product_id,
+            "customer_product_code": item.customer_product_code,
             "product_name": item.product.name if item.product else None,
             "product_model": item.product.model if item.product else None,
             "quantity": item.quantity,
             "unit_price_tax": item.unit_price_tax,
+            "discounted_price_tax": item.discounted_price_tax,
             "discount_rate": item.discount_rate,
             "final_unit_price_tax": item.final_unit_price_tax,
             "line_total": item.line_total,
@@ -62,21 +66,33 @@ def order_to_dict(order: SalesOrder, db: Session = None) -> dict:
         } for item in order.items]
     }
 
+
 def calculate_order_amounts(items_data):
     """计算订单金额"""
     total = 0
     calculated_items = []
     for item in items_data:
-        final_price = item["unit_price_tax"] * (1 - item.get("discount_rate", 0))
+        # 含税优惠价作为最终单价
+        final_price = item.get("discounted_price_tax", item["unit_price_tax"])
         line_total = item["quantity"] * final_price
         total += line_total
+
+        # 计算折扣率：1 - (含税优惠价 / 含税单价)
+        unit_price = item["unit_price_tax"]
+        if unit_price and unit_price != 0:
+            discount_rate = 1 - (final_price / unit_price)
+        else:
+            discount_rate = 0
+
         calculated_items.append({
             **item,
             "final_unit_price_tax": final_price,
             "line_total": line_total,
+            "discount_rate": discount_rate,
             "unshipped_quantity": item["quantity"]
         })
     return calculated_items, total
+
 
 @router.get("/", response_model=PaginatedOrdersResponse)
 def get_sales_orders(
@@ -93,7 +109,7 @@ def get_sales_orders(
 ):
     query = db.query(SalesOrder)
 
-    # 按客户ID筛选
+    # 按客户 ID 筛选
     if customer_id is not None:
         query = query.filter(SalesOrder.customer_id == customer_id)
 
@@ -133,12 +149,14 @@ def get_sales_orders(
 
     return {"items": result, "total": total}
 
+
 @router.get("/{order_id}", response_model=SalesOrderResponse)
 def get_sales_order(order_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     order = db.query(SalesOrder).filter(SalesOrder.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="订单不存在")
     return order_to_dict(order, db)
+
 
 @router.post("/", response_model=SalesOrderResponse)
 def create_sales_order(order: SalesOrderCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
@@ -156,6 +174,8 @@ def create_sales_order(order: SalesOrderCreate, db: Session = Depends(get_db), c
         order_date=order.order_date,
         customer_id=order.customer_id,
         salesperson_id=current_user.id,
+        contract_no=order.contract_no,
+        contract_date=order.contract_date,
         contract_amount=order.contract_amount,
         payment_status=order.payment_status,
         total_amount=total_amount
@@ -167,13 +187,15 @@ def create_sales_order(order: SalesOrderCreate, db: Session = Depends(get_db), c
     for item_data in calculated_items:
         product = db.query(Product).filter(Product.id == item_data["product_id"]).first()
         if not product:
-            raise HTTPException(status_code=404, detail=f"商品ID {item_data['product_id']} 不存在")
+            raise HTTPException(status_code=404, detail=f"商品 ID {item_data['product_id']} 不存在")
 
         db_item = SalesOrderItem(
             order_id=db_order.id,
             product_id=item_data["product_id"],
+            customer_product_code=item_data.get("customer_product_code"),
             quantity=item_data["quantity"],
             unit_price_tax=item_data["unit_price_tax"],
+            discounted_price_tax=item_data["discounted_price_tax"],
             discount_rate=item_data.get("discount_rate", 0),
             final_unit_price_tax=item_data["final_unit_price_tax"],
             line_total=item_data["line_total"],
@@ -182,7 +204,7 @@ def create_sales_order(order: SalesOrderCreate, db: Session = Depends(get_db), c
         )
         db.add(db_item)
 
-        # 生成库存OUT流水
+        # 生成库存 OUT 流水
         inventory_record = InventoryRecord(
             product_id=item_data["product_id"],
             type="OUT",
@@ -202,6 +224,7 @@ def create_sales_order(order: SalesOrderCreate, db: Session = Depends(get_db), c
     db.commit()
     db.refresh(db_order)
     return get_sales_order(db_order.id, db, current_user)
+
 
 @router.put("/{order_id}", response_model=SalesOrderResponse)
 def update_sales_order(order_id: int, order: SalesOrderCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
@@ -228,6 +251,8 @@ def update_sales_order(order_id: int, order: SalesOrderCreate, db: Session = Dep
     # 更新订单基本信息
     db_order.order_date = order.order_date
     db_order.customer_id = order.customer_id
+    db_order.contract_no = order.contract_no
+    db_order.contract_date = order.contract_date
     db_order.contract_amount = order.contract_amount
     db_order.payment_status = order.payment_status
 
@@ -242,13 +267,15 @@ def update_sales_order(order_id: int, order: SalesOrderCreate, db: Session = Dep
     for item_data in calculated_items:
         product = db.query(Product).filter(Product.id == item_data["product_id"]).first()
         if not product:
-            raise HTTPException(status_code=404, detail=f"商品ID {item_data['product_id']} 不存在")
+            raise HTTPException(status_code=404, detail=f"商品 ID {item_data['product_id']} 不存在")
 
         db_item = SalesOrderItem(
             order_id=db_order.id,
             product_id=item_data["product_id"],
+            customer_product_code=item_data.get("customer_product_code"),
             quantity=item_data["quantity"],
             unit_price_tax=item_data["unit_price_tax"],
+            discounted_price_tax=item_data["discounted_price_tax"],
             discount_rate=item_data.get("discount_rate", 0),
             final_unit_price_tax=item_data["final_unit_price_tax"],
             line_total=item_data["line_total"],
@@ -257,7 +284,7 @@ def update_sales_order(order_id: int, order: SalesOrderCreate, db: Session = Dep
         )
         db.add(db_item)
 
-        # 生成库存OUT流水
+        # 生成库存 OUT 流水
         inventory_record = InventoryRecord(
             product_id=item_data["product_id"],
             type="OUT",
@@ -277,6 +304,7 @@ def update_sales_order(order_id: int, order: SalesOrderCreate, db: Session = Dep
     db.commit()
     db.refresh(db_order)
     return get_sales_order(db_order.id, db, current_user)
+
 
 @router.delete("/{order_id}")
 def delete_sales_order(order_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):

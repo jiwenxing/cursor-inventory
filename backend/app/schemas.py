@@ -128,17 +128,21 @@ class ProductResponse(BaseModel):
 # 销售订单相关
 class SalesOrderItemCreate(BaseModel):
     product_id: int
+    customer_product_code: Optional[str] = None  # 客户商品编号
     quantity: float
-    unit_price_tax: float
-    discount_rate: float = 0
+    unit_price_tax: float  # 含税单价
+    discounted_price_tax: float  # 含税优惠价
+    discount_rate: float = 0  # 折扣率（只读）
 
 class SalesOrderItemResponse(BaseModel):
     id: int
     product_id: int
+    customer_product_code: Optional[str] = None  # 客户商品编号
     product_name: Optional[str] = None
     product_model: Optional[str] = None
     quantity: float
-    unit_price_tax: float
+    unit_price_tax: float  # 含税单价
+    discounted_price_tax: float  # 含税优惠价
     discount_rate: float
     final_unit_price_tax: float
     line_total: float
@@ -151,6 +155,8 @@ class SalesOrderItemResponse(BaseModel):
 class SalesOrderCreate(BaseModel):
     order_date: datetime
     customer_id: int
+    contract_no: Optional[str] = None  # 合同编号
+    contract_date: Optional[datetime] = None  # 合同日期
     contract_amount: Optional[float] = None
     payment_status: str = "未付款"
     items: List[SalesOrderItemCreate]
@@ -162,6 +168,8 @@ class SalesOrderResponse(BaseModel):
     customer_name: Optional[str] = None
     salesperson_id: int
     salesperson_name: Optional[str] = None
+    contract_no: Optional[str] = None  # 合同编号
+    contract_date: Optional[datetime] = None  # 合同日期
     contract_amount: Optional[float] = 0.0
     payment_status: str
     total_amount: Optional[float] = 0.0

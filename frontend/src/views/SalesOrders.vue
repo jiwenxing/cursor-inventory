@@ -79,19 +79,32 @@
       <el-table-column type="expand" width="50">
         <template #default="{ row }">
           <div style="padding: 20px;">
+            <h4 style="margin-bottom: 15px;">订单详情</h4>
+            <div style="display: flex; gap: 30px; margin-bottom: 20px; font-size: 14px;">
+              <div>合同编号：{{ row.contract_no || '-' }}</div>
+              <div>合同日期：{{ row.contract_date ? formatDate(row.contract_date).split(' ')[0] : '-' }}</div>
+              <div>合同金额：¥{{ (row.contract_amount || 0).toFixed(2) }}</div>
+            </div>
+
             <h4 style="margin-bottom: 15px;">订单明细</h4>
             <el-table :data="row.items" style="width: 100%" :show-header="true" size="small">
               <el-table-column prop="product_name" label="商品" show-overflow-tooltip />
               <el-table-column prop="product_model" label="型号" width="100" />
+              <el-table-column prop="customer_product_code" label="客户商品编号" width="120" />
               <el-table-column prop="quantity" label="数量" width="70" />
-              <el-table-column prop="unit_price_tax" label="单价(含税)" width="90">
+              <el-table-column prop="unit_price_tax" label="含税单价" width="100">
                 <template #default="{ row }">
                   ¥{{ row.unit_price_tax?.toFixed(2) }}
                 </template>
               </el-table-column>
-              <el-table-column prop="discount_rate" label="折扣" width="70">
+              <el-table-column prop="discounted_price_tax" label="含税优惠价" width="100">
                 <template #default="{ row }">
-                  {{ (row.discount_rate * 100).toFixed(0) }}%
+                  ¥{{ row.discounted_price_tax?.toFixed(2) }}
+                </template>
+              </el-table-column>
+              <el-table-column prop="discount_rate" label="折扣率" width="70">
+                <template #default="{ row }">
+                  {{ (row.discount_rate * 100).toFixed(2) }}%
                 </template>
               </el-table-column>
               <el-table-column prop="line_total" label="行金额" width="90">
@@ -186,6 +199,18 @@
         </el-row>
         <el-row :gutter="20">
           <el-col :span="12">
+            <el-form-item label="合同编号" prop="contract_no">
+              <el-input v-model="form.contract_no" placeholder="请输入合同编号" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="合同日期" prop="contract_date">
+              <el-date-picker v-model="form.contract_date" type="date" style="width: 100%" value-format="YYYY-MM-DD" placeholder="请选择合同日期" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="20">
+          <el-col :span="12">
             <el-form-item label="合同金额" prop="contract_amount">
               <el-input-number v-model="form.contract_amount" :precision="2" style="width: 100%" />
             </el-form-item>
@@ -215,22 +240,32 @@
               </el-select>
             </template>
           </el-table-column>
-          <el-table-column label="数量" width="110" align="center">
+          <el-table-column label="客户商品编号" min-width="100" align="center">
+            <template #default="{ row, $index }">
+              <el-input v-model="row.customer_product_code" placeholder="客户商品编号" size="small" style="width: 100%" />
+            </template>
+          </el-table-column>
+          <el-table-column label="数量" width="100" align="center">
             <template #default="{ row, $index }">
               <el-input-number v-model="row.quantity" :min="1" :step="1" size="small" style="width: 90%" controls-position="right" @change="calculateItem($index)" />
             </template>
           </el-table-column>
-          <el-table-column label="单价（含税）" width="145" align="center">
+          <el-table-column label="含税单价" width="110" align="center">
             <template #default="{ row, $index }">
               <el-input-number v-model="row.unit_price_tax" :min="0" :precision="2" size="small" controls-position="right" @change="calculateItem($index)" />
             </template>
           </el-table-column>
-          <el-table-column label="折扣率" width="130" align="center">
+          <el-table-column label="含税优惠价" width="110" align="center">
             <template #default="{ row, $index }">
-              <el-input-number v-model="row.discount_rate" :min="-1" :max="1" :step="0.01" :precision="2" size="small" style="width: 90%" controls-position="right" @change="calculateItem($index)" />
+              <el-input-number v-model="row.discounted_price_tax" :min="0" :precision="2" size="small" controls-position="right" @change="handleDiscountedPriceChange($index)" />
             </template>
           </el-table-column>
-          <el-table-column label="行金额" width="120">
+          <el-table-column label="折扣率" width="90" align="center">
+            <template #default="{ row }">
+              {{ calculateDiscountRate(row) }}%
+            </template>
+          </el-table-column>
+          <el-table-column label="行金额" width="110">
             <template #default="{ row }">
               ¥{{ row.line_total?.toFixed(2) || '0.00' }}
             </template>
@@ -365,6 +400,8 @@ const searchForm = reactive({
 const form = reactive({
   order_date: new Date(),
   customer_id: null,
+  contract_no: '',
+  contract_date: null,
   contract_amount: 0,
   payment_status: '未付款',
   items: []
@@ -546,6 +583,8 @@ const handleAdd = () => {
   Object.assign(form, {
     order_date: new Date(),
     customer_id: null,
+    contract_no: '',
+    contract_date: null,
     contract_amount: 0,
     payment_status: '未付款',
     items: []
@@ -559,12 +598,16 @@ const handleEdit = (row) => {
   Object.assign(form, {
     order_date: new Date(row.order_date),
     customer_id: row.customer_id,
+    contract_no: row.contract_no || '',
+    contract_date: row.contract_date ? new Date(row.contract_date) : null,
     contract_amount: row.contract_amount,
     payment_status: row.payment_status,
     items: row.items.map(item => ({
       product_id: item.product_id,
+      customer_product_code: item.customer_product_code || '',
       quantity: item.quantity,
       unit_price_tax: item.unit_price_tax,
+      discounted_price_tax: item.discounted_price_tax || item.unit_price_tax,
       discount_rate: item.discount_rate,
       line_total: item.line_total
     }))
@@ -579,8 +622,10 @@ const handleView = (row) => {
 const addItem = () => {
   form.items.push({
     product_id: null,
+    customer_product_code: '',
     quantity: 1,
     unit_price_tax: 0,
+    discounted_price_tax: 0,
     discount_rate: 0,
     line_total: 0
   })
@@ -594,14 +639,26 @@ const handleProductChange = (index) => {
   const product = products.value.find(p => p.id === form.items[index].product_id)
   if (product) {
     form.items[index].unit_price_tax = product.retail_price || 0
+    form.items[index].discounted_price_tax = product.retail_price || 0
     calculateItem(index)
   }
 }
 
 const calculateItem = (index) => {
   const item = form.items[index]
-  const finalPrice = item.unit_price_tax * (1 - item.discount_rate)
-  item.line_total = item.quantity * finalPrice
+  item.line_total = item.quantity * item.discounted_price_tax
+}
+
+const handleDiscountedPriceChange = (index) => {
+  calculateItem(index)
+}
+
+const calculateDiscountRate = (item) => {
+  if (!item.unit_price_tax || item.unit_price_tax === 0) {
+    return '0'
+  }
+  const rate = (1 - item.discounted_price_tax / item.unit_price_tax) * 100
+  return rate.toFixed(2)
 }
 
 const calculateTotal = () => {
@@ -622,12 +679,16 @@ const handleSubmit = async () => {
     const payload = {
       order_date: form.order_date.toISOString(),
       customer_id: form.customer_id,
+      contract_no: form.contract_no || null,
+      contract_date: form.contract_date ? new Date(form.contract_date).toISOString() : null,
       contract_amount: form.contract_amount,
       payment_status: form.payment_status,
       items: form.items.map(item => ({
         product_id: item.product_id,
+        customer_product_code: item.customer_product_code,
         quantity: item.quantity,
         unit_price_tax: item.unit_price_tax,
+        discounted_price_tax: item.discounted_price_tax,
         discount_rate: item.discount_rate
       }))
     }
