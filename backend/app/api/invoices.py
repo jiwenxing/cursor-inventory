@@ -40,6 +40,7 @@ def get_invoices(
     limit: int = 15,
     customer_id: Optional[int] = None,
     invoice_no: Optional[str] = None,
+    order_no: Optional[str] = None,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     status: Optional[str] = None,
@@ -55,6 +56,10 @@ def get_invoices(
     # 按发票号筛选
     if invoice_no:
         query = query.filter(Invoice.invoice_no.ilike(f"%{invoice_no}%"))
+
+    # 按订单号筛选（关联的发票明细）
+    if order_no:
+        query = query.join(InvoiceItem).filter(InvoiceItem.order_no == order_no)
 
     # 按日期范围筛选
     if start_date:

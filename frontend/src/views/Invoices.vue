@@ -33,6 +33,14 @@
             @input="handleSearch"
           />
         </el-col>
+        <el-col :span="4">
+          <el-input
+            v-model="searchForm.order_no"
+            placeholder="订单号"
+            clearable
+            @input="handleSearch"
+          />
+        </el-col>
         <el-col :span="6">
           <el-date-picker
             v-model="searchForm.dateRange"
@@ -325,6 +333,7 @@ const pageSize = ref(15)
 const searchForm = reactive({
   customer_id: undefined,
   invoice_no: '',
+  order_no: '',
   dateRange: [],
   start_date: '',
   end_date: '',
@@ -422,6 +431,9 @@ const getSearchParams = () => {
   if (searchForm.invoice_no) {
     params.invoice_no = searchForm.invoice_no
   }
+  if (searchForm.order_no) {
+    params.order_no = searchForm.order_no
+  }
   if (searchForm.start_date) {
     params.start_date = searchForm.start_date
   }
@@ -461,6 +473,7 @@ const handleSearch = () => {
 const handleReset = () => {
   searchForm.customer_id = undefined
   searchForm.invoice_no = ''
+  searchForm.order_no = ''
   searchForm.dateRange = []
   searchForm.start_date = ''
   searchForm.end_date = ''
