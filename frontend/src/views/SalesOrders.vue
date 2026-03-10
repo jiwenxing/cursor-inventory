@@ -154,11 +154,12 @@
           </div>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="230" fixed="right">
+      <el-table-column label="操作" width="280" fixed="right">
         <template #default="{ row }">
           <el-button size="small" link @click="handleView(row)">查看</el-button>
           <el-button size="small" link type="primary" @click="handleEdit(row)">编辑</el-button>
           <el-button size="small" link type="success" @click="handlePayment(row)">收款</el-button>
+          <el-button size="small" link type="warning" @click="handleInvoice(row)" :disabled="(row.balance_amount || 0) <= 0">开票</el-button>
           <el-button size="small" link type="danger" @click="handleDelete(row)">删除</el-button>
         </template>
       </el-table-column>
@@ -359,6 +360,119 @@
         </el-table-column>
       </el-table>
     </el-dialog>
+
+    <!-- 开票对话框 -->
+    <el-dialog v-model="invoiceDialogVisible" title="开票" width="1000px" @close="invoiceDialogVisible = false">
+      <div v-if="invoiceOrderInfo" style="margin-bottom: 20px;">
+        <el-descriptions title="订单信息" :column="3" border>
+          <el-descriptions-item label="订单号">{{ invoiceOrderInfo.order_id }}</el-descriptions-item>
+          <el-descriptions-item label="客户">{{ invoiceOrderInfo.customer_name }}</el-descriptions-item>
+          <el-descriptions-item label="订单日期">{{ formatDate(invoiceOrderInfo.order_date) }}</el-descriptions-item>
+          <el-descriptions-item label="订单金额">¥{{ (invoiceOrderInfo.total_amount || 0).toFixed(2) }}</el-descriptions-item>
+          <el-descriptions-item label="已开票">¥{{ (invoiceOrderInfo.invoiced_amount || 0).toFixed(2) }}</el-descriptions-item>
+          <el-descriptions-item label="可开票余额">
+            <span style="color: #67c23a; font-weight: bold;">¥{{ (invoiceOrderInfo.balance_amount || 0).toFixed(2) }}</span>
+          </el-descriptions-item>
+        </el-descriptions>
+      </div>
+
+      <el-divider>选择开票商品</el-divider>
+      <el-table :data="invoiceOrderInfo?.items || []" style="width: 100%" max-height="400" @selection-change="handleInvoiceSelectionChange">
+        <el-table-column type="selection" width="50" :selectable="(row) => row.available_quantity > 0" />
+        <el-table-column prop="product_name" label="商品" show-overflow-tooltip />
+        <el-table-column prop="product_model" label="型号" width="100" />
+        <el-table-column prop="quantity" label="订单数量" width="90" align="right" />
+        <el-table-column prop="invoiced_quantity" label="已开票数量" width="100" align="right">
+          <template #default="{ row }">
+            <span style="color: #909399;">{{ row.invoiced_quantity || 0 }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="available_quantity" label="可开票数量" width="100" align="right">
+          <template #default="{ row }">
+            <span style="color: #67c23a;">{{ row.available_quantity || 0 }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="discounted_price_tax" label="含税优惠价" width="100" align="right">
+          <template #default="{ row }">
+            ¥{{ (row.discounted_price_tax || 0).toFixed(2) }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="available_amount" label="可开票金额" width="110" align="right">
+          <template #default="{ row }">
+            <span style="color: #67c23a;">¥{{ (row.available_amount || 0).toFixed(2) }}</span>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <!-- 开票表单 -->
+      <el-form :model="invoiceForm" ref="invoiceFormRef" label-width="100px" style="margin-top: 20px;">
+        <el-row :gutter="20">
+          <el-col :span="8">
+            <el-form-item label="发票号" prop="invoice_no">
+              <el-input v-model="invoiceForm.invoice_no" placeholder="自动生成" disabled />
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="开票日期" prop="invoice_date">
+              <el-date-picker v-model="invoiceForm.invoice_date" type="datetime" style="width: 100%" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="备注" prop="remark">
+              <el-input v-model="invoiceForm.remark" placeholder="可选" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-divider>已选商品明细</el-divider>
+        <el-table :data="selectedInvoiceItems" style="width: 100%" max-height="300">
+          <el-table-column prop="product_name" label="商品" show-overflow-tooltip />
+          <el-table-column prop="product_model" label="型号" width="100" />
+          <el-table-column label="可开票数量" width="100" align="right">
+            <template #default="{ row }">
+              {{ row.available_quantity }}
+            </template>
+          </el-table-column>
+          <el-table-column label="本次开票数量" width="140" align="center">
+            <template #default="{ row, $index }">
+              <el-input-number
+                v-model="row.invoice_quantity"
+                :min="0.01"
+                :max="row.available_quantity"
+                :step="1"
+                size="small"
+                controls-position="right"
+                @change="handleInvoiceQuantityChange($index)"
+              />
+            </template>
+          </el-table-column>
+          <el-table-column label="含税优惠价" width="100" align="right">
+            <template #default="{ row }">
+              ¥{{ (row.discounted_price_tax || 0).toFixed(2) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="开票金额" width="110" align="right">
+            <template #default="{ row }">
+              <span style="color: #e6a23c; font-weight: bold;">¥{{ (row.invoice_amount || 0).toFixed(2) }}</span>
+            </template>
+          </el-table-column>
+        </el-table>
+
+        <div style="margin-top: 20px; text-align: right;">
+          <el-button @click="selectAllInvoiceItems">全选</el-button>
+          <el-button @click="clearInvoiceItems">清空</el-button>
+          <span style="margin-left: 20px; font-size: 16px;">
+            <strong>开票总金额：</strong>
+            <span style="color: #e6a23c; font-size: 18px;">¥{{ calculateInvoiceTotal().toFixed(2) }}</span>
+          </span>
+        </div>
+      </el-form>
+
+      <template #footer>
+        <el-button @click="invoiceDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleSubmitInvoice" :disabled="selectedInvoiceItems.length === 0 || calculateInvoiceTotal() <= 0">确认开票</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -380,6 +494,17 @@ const paymentFormRef = ref(null)
 const editingId = ref(null)
 const currentOrder = ref(null)
 const paymentRecords = ref([])
+
+// 开票相关
+const invoiceDialogVisible = ref(false)
+const invoiceFormRef = ref(null)
+const invoiceOrderInfo = ref(null)
+const selectedInvoiceItems = ref([])
+const invoiceForm = reactive({
+  invoice_no: '',
+  invoice_date: new Date(),
+  remark: ''
+})
 
 // 分页相关
 const total = ref(0)
@@ -796,6 +921,132 @@ const handleDeletePayment = async (record) => {
     if (error !== 'cancel') {
       ElMessage.error(error.response?.data?.detail || '删除失败')
     }
+  }
+}
+
+// 开票相关方法
+const handleInvoice = async (row) => {
+  try {
+    // 获取订单商品明细（包含已开票信息）
+    const response = await api.get(`/invoices/orders/${row.id}/items-for-invoice`)
+    invoiceOrderInfo.value = response.data
+
+    // 确保有 customer_id（兼容旧版后端）
+    if (!invoiceOrderInfo.value.customer_id) {
+      invoiceOrderInfo.value.customer_id = row.customer_id
+    }
+
+    // 重置表单
+    invoiceForm.remark = ''
+    invoiceForm.invoice_date = new Date()
+
+    // 获取下一个发票号
+    const invoiceNoResponse = await api.get('/invoices/next-no')
+    invoiceForm.invoice_no = invoiceNoResponse.data.invoice_no
+
+    // 清空已选商品
+    selectedInvoiceItems.value = []
+
+    invoiceDialogVisible.value = true
+  } catch (error) {
+    ElMessage.error('加载订单开票信息失败')
+    console.error(error)
+  }
+}
+
+const handleInvoiceSelectionChange = (selection) => {
+  // 转换选中的行为包含开票数量的对象
+  selectedInvoiceItems.value = selection.map(item => ({
+    order_item_id: item.id,
+    product_name: item.product_name,
+    product_model: item.product_model,
+    quantity: item.quantity,
+    available_quantity: item.available_quantity,
+    invoiced_quantity: item.invoiced_quantity,
+    discounted_price_tax: item.discounted_price_tax,
+    invoice_quantity: item.available_quantity, // 默认填入可开票数量
+    invoice_amount: item.available_amount // 默认填入可开票金额
+  }))
+}
+
+const selectAllInvoiceItems = () => {
+  // 选择所有可开票的商品
+  selectedInvoiceItems.value = (invoiceOrderInfo.value?.items || [])
+    .filter(item => item.available_quantity > 0)
+    .map(item => ({
+      order_item_id: item.id,
+      product_name: item.product_name,
+      product_model: item.product_model,
+      quantity: item.quantity,
+      available_quantity: item.available_quantity,
+      invoiced_quantity: item.invoiced_quantity,
+      discounted_price_tax: item.discounted_price_tax,
+      invoice_quantity: item.available_quantity,
+      invoice_amount: item.available_amount
+    }))
+}
+
+const clearInvoiceItems = () => {
+  selectedInvoiceItems.value = []
+}
+
+const handleInvoiceQuantityChange = (index) => {
+  const item = selectedInvoiceItems.value[index]
+  // 根据开票数量重新计算开票金额
+  item.invoice_amount = item.invoice_quantity * item.discounted_price_tax
+}
+
+const calculateInvoiceTotal = () => {
+  return selectedInvoiceItems.value.reduce((sum, item) => sum + (item.invoice_amount || 0), 0)
+}
+
+const handleSubmitInvoice = async () => {
+  if (!invoiceForm.invoice_no) {
+    ElMessage.warning('请填写发票号')
+    return
+  }
+
+  if (selectedInvoiceItems.value.length === 0) {
+    ElMessage.warning('请选择要开票的商品')
+    return
+  }
+
+  const totalAmount = calculateInvoiceTotal()
+  if (totalAmount <= 0) {
+    ElMessage.warning('开票金额必须大于 0')
+    return
+  }
+
+  if (totalAmount > (invoiceOrderInfo.value.balance_amount || 0)) {
+    ElMessage.error('开票金额不能超过可开票余额')
+    return
+  }
+
+  try {
+    const items = selectedInvoiceItems.value.map(item => ({
+      order_item_id: item.order_item_id,
+      quantity: item.invoice_quantity,
+      amount: item.invoice_amount,
+      tax_amount: 0 // 税额暂时设为0，后续可扩展
+    }))
+
+    const payload = {
+      invoice_no: invoiceForm.invoice_no,
+      invoice_date: invoiceForm.invoice_date.toISOString(),
+      customer_id: invoiceOrderInfo.value.customer_id,
+      remark: invoiceForm.remark,
+      items
+    }
+
+    await api.post('/invoices/from-order', payload)
+    ElMessage.success('开票成功')
+
+    invoiceDialogVisible.value = false
+
+    // 刷新订单列表
+    await loadOrders()
+  } catch (error) {
+    ElMessage.error(error.response?.data?.detail || '开票失败')
   }
 }
 

@@ -178,12 +178,30 @@ class InvoiceItem(Base):
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     invoice_id = Column(Integer, ForeignKey("invoices.id"), nullable=False)  # 发票ID
     order_id = Column(Integer, ForeignKey("sales_orders.id"), nullable=False)  # 关联的订单ID
+    order_item_id = Column(Integer, ForeignKey("sales_order_items.id"), nullable=True)  # 关联的订单商品明细ID
     order_no = Column(Integer, nullable=False)  # 订单号（冗余）
     amount = Column(Float, nullable=False)  # 本次开票金额
     tax_amount = Column(Float, default=0)  # 本次税额
 
     invoice = relationship("Invoice", back_populates="items")
     order = relationship("SalesOrder")
+    order_item = relationship("SalesOrderItem")
+
+
+class SalesOrderItemInvoice(Base):
+    """订单商品明细开票记录表"""
+    __tablename__ = "sales_order_item_invoices"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    order_item_id = Column(Integer, ForeignKey("sales_order_items.id"), nullable=False)  # 订单商品明细ID
+    invoice_item_id = Column(Integer, ForeignKey("invoice_items.id"), nullable=False)  # 发票明细ID
+    invoiced_quantity = Column(Float, nullable=False)  # 本次开票数量
+    invoiced_amount = Column(Float, nullable=False)  # 本次开票金额（含税）
+    invoiced_tax_amount = Column(Float, default=0)  # 本次税额
+    created_at = Column(DateTime, server_default=func.now())
+
+    order_item = relationship("SalesOrderItem")
+    invoice_item = relationship("InvoiceItem")
 
 
 # ==================== 收款记录相关 ====================

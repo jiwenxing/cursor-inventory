@@ -60,6 +60,16 @@
         </template>
       </el-table-column>
       <el-table-column prop="customer_name" label="客户" show-overflow-tooltip />
+      <el-table-column label="关联订单号" width="120">
+        <template #default="{ row }">
+          <div v-if="row.items && row.items.length > 0">
+            <el-tag v-for="item in row.items" :key="item.id" size="small" class="order-tag">
+              {{ item.order_no }}
+            </el-tag>
+          </div>
+          <span v-else>-</span>
+        </template>
+      </el-table-column>
       <el-table-column prop="total_amount" label="发票金额" width="110">
         <template #default="{ row }">
           ¥{{ row.total_amount.toFixed(2) }}
@@ -239,51 +249,54 @@
     </el-dialog>
 
     <!-- 查看发票对话框 -->
-    <el-dialog v-model="viewDialogVisible" title="发票详情" width="700px">
+    <el-dialog v-model="viewDialogVisible" title="发票详情" width="900px">
       <el-descriptions :column="2" border>
-        <el-descriptions-item label="发票号">{{ viewData.invoice_no }}</el-descriptions-item>
-        <el-descriptions-item label="状态">
+        <el-descriptions-item label="发票号" :span="1">{{ viewData.invoice_no }}</el-descriptions-item>
+        <el-descriptions-item label="状态" :span="1">
           <el-tag :type="viewData.status === '已开票' ? 'success' : 'danger'">
             {{ viewData.status }}
           </el-tag>
         </el-descriptions-item>
-        <el-descriptions-item label="开票日期">{{ formatDate(viewData.invoice_date) }}</el-descriptions-item>
-        <el-descriptions-item label="客户">{{ viewData.customer_name }}</el-descriptions-item>
-        <el-descriptions-item label="发票金额">¥{{ viewData.total_amount?.toFixed(2) }}</el-descriptions-item>
-        <el-descriptions-item label="税额">¥{{ viewData.tax_amount?.toFixed(2) }}</el-descriptions-item>
-        <el-descriptions-item label="开票人">{{ viewData.creator_name }}</el-descriptions-item>
-        <el-descriptions-item label="备注">{{ viewData.remark || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="开票日期" :span="1">{{ formatDate(viewData.invoice_date) }}</el-descriptions-item>
+        <el-descriptions-item label="客户" :span="1">{{ viewData.customer_name }}</el-descriptions-item>
+        <el-descriptions-item label="发票金额" :span="1">¥{{ viewData.total_amount?.toFixed(2) }}</el-descriptions-item>
+        <el-descriptions-item label="税额" :span="1">¥{{ viewData.tax_amount?.toFixed(2) }}</el-descriptions-item>
+        <el-descriptions-item label="开票人" :span="1">{{ viewData.creator_name }}</el-descriptions-item>
+        <el-descriptions-item label="备注" :span="1">{{ viewData.remark || '-' }}</el-descriptions-item>
       </el-descriptions>
 
-      <el-divider>关联订单</el-divider>
-      <el-table :data="viewData.items" border size="small">
-        <el-table-column prop="order_no" label="订单号" width="80" />
-        <el-table-column prop="order_date" label="订单日期" width="120">
-          <template #default="{ row }">
-            {{ row.order_date ? formatDate(row.order_date).split(' ')[0] : '-' }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="order_total_amount" label="订单金额" width="100">
-          <template #default="{ row }">
-            ¥{{ row.order_total_amount?.toFixed(2) }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="contract_amount" label="合同金额" width="100">
-          <template #default="{ row }">
-            ¥{{ row.contract_amount?.toFixed(2) }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="amount" label="开票金额" width="100">
-          <template #default="{ row }">
-            ¥{{ row.amount?.toFixed(2) }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="tax_amount" label="税额" width="80">
-          <template #default="{ row }">
-            ¥{{ row.tax_amount?.toFixed(2) }}
-          </template>
-        </el-table-column>
-      </el-table>
+      <el-divider>关联订单明细</el-divider>
+      <div v-for="(item, index) in viewData.items" :key="item.id" class="order-detail-section">
+        <div class="order-header">
+          <span class="order-title">订单 #{{ item.order_no }}</span>
+          <span class="order-info">订单日期: {{ item.order_date ? formatDate(item.order_date).split(' ')[0] : '-' }}</span>
+          <span class="order-info">订单金额: ¥{{ item.order_total_amount?.toFixed(2) }}</span>
+          <span class="order-info">本次开票: ¥{{ item.amount?.toFixed(2) }}</span>
+        </div>
+
+        <!-- 商品明细表格 -->
+        <el-table v-if="item.product_items && item.product_items.length > 0" :data="item.product_items" border size="small" class="product-table">
+          <el-table-column prop="product_name" label="商品名称" min-width="150" />
+          <el-table-column prop="product_model" label="型号" width="120" />
+          <el-table-column prop="quantity" label="开票数量" width="100" align="right" />
+          <el-table-column prop="unit_price" label="单价" width="120" align="right">
+            <template #default="{ row }">
+              ¥{{ row.unit_price?.toFixed(2) }}
+            </template>
+          </el-table-column>
+          <el-table-column prop="amount" label="金额" width="120" align="right">
+            <template #default="{ row }">
+              ¥{{ row.amount?.toFixed(2) }}
+            </template>
+          </el-table-column>
+          <el-table-column prop="tax_amount" label="税额" width="100" align="right">
+            <template #default="{ row }">
+              ¥{{ row.tax_amount?.toFixed(2) }}
+            </template>
+          </el-table-column>
+        </el-table>
+        <div v-else class="no-product-data">无商品明细</div>
+      </div>
     </el-dialog>
   </div>
 </template>
@@ -722,5 +735,48 @@ onMounted(() => {
   padding: 15px 0 0 0;
   margin-top: 15px;
   border-top: 1px solid #ebeef5;
+}
+
+.order-tag {
+  margin-right: 5px;
+  margin-bottom: 2px;
+}
+
+.order-detail-section {
+  margin-bottom: 20px;
+  border: 1px solid #ebeef5;
+  border-radius: 4px;
+  padding: 15px;
+  background-color: #fafafa;
+}
+
+.order-header {
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #ebeef5;
+}
+
+.order-title {
+  font-weight: bold;
+  font-size: 14px;
+  color: #303133;
+  margin-right: 20px;
+}
+
+.order-info {
+  font-size: 13px;
+  color: #606266;
+  margin-right: 15px;
+}
+
+.product-table {
+  margin-top: 10px;
+}
+
+.no-product-data {
+  color: #909399;
+  font-size: 12px;
+  text-align: center;
+  padding: 10px;
 }
 </style>

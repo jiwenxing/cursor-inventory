@@ -5,8 +5,8 @@ from sqlalchemy import func
 from typing import List, Optional
 from datetime import datetime
 from app.database import get_db
-from app.models import Invoice, InvoiceItem, SalesOrder, Customer, User
-from app.schemas import InvoiceCreate, InvoiceResponse, PaginatedInvoicesResponse, OrderInvoiceInfo
+from app.models import Invoice, InvoiceItem, SalesOrder, SalesOrderItem, Customer, User, SalesOrderItemInvoice
+from app.schemas import InvoiceCreate, InvoiceResponse, PaginatedInvoicesResponse, OrderInvoiceInfo, OrderInvoiceSummary, SalesOrderItemForInvoice, InvoiceCreateFromOrder
 from app.utils import get_current_user
 
 router = APIRouter()
@@ -121,6 +121,29 @@ def get_invoice(invoice_id: int, db: Session = Depends(get_db), current_user: Us
     items_data = []
     for item in invoice.items:
         order = db.query(SalesOrder).filter(SalesOrder.id == item.order_id).first()
+
+        # 查询该发票明细对应的商品明细开票记录
+        order_item_invoices = db.query(SalesOrderItemInvoice).filter(
+            SalesOrderItemInvoice.invoice_item_id == item.id
+        ).all()
+
+        # 构建商品明细数据
+        product_items = []
+        for oii in order_item_invoices:
+            order_item = oii.order_item
+            product = order_item.product if order_item else None
+            product_items.append({
+                "id": oii.id,
+                "order_item_id": oii.order_item_id,
+                "product_id": order_item.product_id if order_item else None,
+                "product_name": product.name if product else None,
+                "product_model": product.model if product else None,
+                "quantity": oii.invoiced_quantity,
+                "unit_price": order_item.discounted_price_tax if order_item else 0,
+                "amount": oii.invoiced_amount,
+                "tax_amount": oii.invoiced_tax_amount
+            })
+
         items_data.append({
             "id": item.id,
             "invoice_id": item.invoice_id,
@@ -131,7 +154,8 @@ def get_invoice(invoice_id: int, db: Session = Depends(get_db), current_user: Us
             "order_total_amount": order.total_amount if order else 0,
             "contract_amount": order.contract_amount if order else 0,
             "amount": item.amount,
-            "tax_amount": item.tax_amount
+            "tax_amount": item.tax_amount,
+            "product_items": product_items  # 商品明细
         })
 
     return {
@@ -306,6 +330,64 @@ def delete_invoice(invoice_id: int, db: Session = Depends(get_db), current_user:
     return {"message": "发票已作废"}
 
 
+@router.get("/orders/{order_id}/items-for-invoice", response_model=OrderInvoiceSummary)
+def get_order_items_for_invoice(order_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """获取订单商品明细（用于开票），包含已开票信息"""
+    order = db.query(SalesOrder).filter(SalesOrder.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="订单不存在")
+
+    # 获取订单的所有商品明细
+    items = db.query(SalesOrderItem).filter(SalesOrderItem.order_id == order_id).all()
+
+    # 计算每个商品明细的已开票数量和金额
+    items_data = []
+    total_invoiced = 0
+    for item in items:
+        # 查询该商品明细已开票数量和金额
+        invoiced_info = db.query(
+            func.sum(SalesOrderItemInvoice.invoiced_quantity).label("quantity"),
+            func.sum(SalesOrderItemInvoice.invoiced_amount).label("amount")
+        ).filter(
+            SalesOrderItemInvoice.order_item_id == item.id
+        ).first()
+
+        invoiced_quantity = invoiced_info.quantity or 0
+        invoiced_amount = invoiced_info.amount or 0
+        available_quantity = item.quantity - invoiced_quantity
+        available_amount = item.line_total - invoiced_amount
+
+        total_invoiced += invoiced_amount
+
+        items_data.append({
+            "id": item.id,
+            "product_id": item.product_id,
+            "product_name": item.product.name if item.product else None,
+            "product_model": item.product.model if item.product else None,
+            "quantity": item.quantity,
+            "invoiced_quantity": invoiced_quantity,
+            "available_quantity": available_quantity,
+            "discounted_price_tax": item.discounted_price_tax,  # 含税优惠价
+            "line_total": item.line_total,
+            "available_amount": available_amount
+        })
+
+    # 计算订单总的可开票余额
+    balance_amount = order.total_amount - total_invoiced
+
+    return {
+        "order_id": order.id,
+        "order_no": order.id,
+        "order_date": order.order_date,
+        "customer_id": order.customer_id,
+        "customer_name": order.customer.name if order.customer else None,
+        "total_amount": order.total_amount,
+        "invoiced_amount": total_invoiced,
+        "balance_amount": balance_amount,
+        "items": items_data
+    }
+
+
 @router.get("/orders/{order_id}/invoice-info", response_model=OrderInvoiceInfo)
 def get_order_invoice_info(order_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """获取订单的开票信息"""
@@ -363,3 +445,126 @@ def get_available_orders_for_invoice(
             })
 
     return result
+
+
+@router.post("/from-order", response_model=InvoiceResponse)
+def create_invoice_from_order(
+    invoice_data: InvoiceCreateFromOrder,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """从订单创建发票（支持按商品明细开票）"""
+    # 验证客户存在
+    customer = db.query(Customer).filter(Customer.id == invoice_data.customer_id).first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="客户不存在")
+
+    # 检查发票号是否已存在
+    existing = db.query(Invoice).filter(Invoice.invoice_no == invoice_data.invoice_no).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="发票号已存在")
+
+    # 验证并计算金额
+    total_amount = 0
+    total_tax = 0
+
+    # 按订单分组
+    order_ids = set(item.order_item_id for item in invoice_data.items)
+    order_item_map = {item.order_item_id: item for item in invoice_data.items}
+
+    # 验证每个订单商品明细
+    for order_item_id in order_ids:
+        order_item = db.query(SalesOrderItem).filter(SalesOrderItem.id == order_item_id).first()
+        if not order_item:
+            raise HTTPException(status_code=404, detail=f"订单商品明细ID {order_item_id} 不存在")
+
+        # 验证订单属于该客户
+        if order_item.order.customer_id != invoice_data.customer_id:
+            raise HTTPException(status_code=400, detail=f"订单商品明细 {order_item_id} 不属于该客户")
+
+        item_data = order_item_map[order_item_id]
+
+        # 检查可开票数量
+        invoiced_info = db.query(
+            func.sum(SalesOrderItemInvoice.invoiced_quantity).label("quantity")
+        ).filter(
+            SalesOrderItemInvoice.order_item_id == order_item_id
+        ).first()
+        invoiced_quantity = invoiced_info.quantity or 0
+        available_quantity = order_item.quantity - invoiced_quantity
+
+        if item_data.quantity > available_quantity:
+            raise HTTPException(
+                status_code=400,
+                detail=f"商品 {order_item.product.name if order_item.product else order_item_id} 开票数量超过可开票数量（{available_quantity}）"
+            )
+
+        total_amount += item_data.amount
+        total_tax += item_data.tax_amount
+
+    # 创建发票
+    db_invoice = Invoice(
+        invoice_no=invoice_data.invoice_no,
+        invoice_date=invoice_data.invoice_date,
+        customer_id=invoice_data.customer_id,
+        total_amount=total_amount,
+        tax_amount=total_tax,
+        remark=invoice_data.remark,
+        created_by=current_user.id
+    )
+    db.add(db_invoice)
+    db.flush()
+
+    # 创建发票明细和商品明细开票记录
+    order_items_processed = {}  # 用于合并同一订单的开票明细
+
+    for item_data in invoice_data.items:
+        order_item_id = item_data.order_item_id
+        order_item = db.query(SalesOrderItem).filter(SalesOrderItem.id == order_item_id).first()
+
+        # 查找或创建该订单的发票明细
+        if order_item.order_id not in order_items_processed:
+            db_item = InvoiceItem(
+                invoice_id=db_invoice.id,
+                order_id=order_item.order_id,
+                order_item_id=order_item_id,
+                order_no=order_item.order_id,
+                amount=0,  # 先设为0，后面累加
+                tax_amount=0
+            )
+            db.add(db_item)
+            db.flush()
+            order_items_processed[order_item.order_id] = {
+                "item": db_item,
+                "amount": 0,
+                "tax_amount": 0
+            }
+
+        # 累加金额
+        order_items_processed[order_item.order_id]["amount"] += item_data.amount
+        order_items_processed[order_item.order_id]["tax_amount"] += item_data.tax_amount
+
+        # 获取发票明细ID
+        invoice_item_id = order_items_processed[order_item.order_id]["item"].id
+
+        # 创建商品明细开票记录
+        db_soi = SalesOrderItemInvoice(
+            order_item_id=order_item_id,
+            invoice_item_id=invoice_item_id,  # 直接设置正确的ID
+            invoiced_quantity=item_data.quantity,
+            invoiced_amount=item_data.amount,
+            invoiced_tax_amount=item_data.tax_amount
+        )
+        db.add(db_soi)
+
+    db.flush()
+
+    # 更新发票明细的实际金额
+    for order_id, data in order_items_processed.items():
+        data["item"].amount = data["amount"]
+        data["item"].tax_amount = data["tax_amount"]
+
+    db.commit()
+    db.refresh(db_invoice)
+
+    return get_invoice(db_invoice.id, db, current_user)

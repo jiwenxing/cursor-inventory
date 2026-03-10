@@ -234,6 +234,7 @@ class ImportResult(BaseModel):
 # 发票相关
 class InvoiceItemCreate(BaseModel):
     order_id: int
+    order_item_id: Optional[int] = None  # 订单商品明细ID
     amount: float
     tax_amount: float = 0
 
@@ -242,6 +243,7 @@ class InvoiceItemResponse(BaseModel):
     id: int
     invoice_id: int
     order_id: int
+    order_item_id: Optional[int] = None
     order_no: int
     order_date: Optional[datetime] = None
     customer_name: Optional[str] = None
@@ -404,3 +406,51 @@ class PurchaseOrderInvoiceInfo(BaseModel):
     total_amount: float
     invoiced_amount: float  # 已开票金额
     balance_amount: float  # 可开票余额
+
+
+# ==================== 订单商品明细开票相关 ====================
+
+class SalesOrderItemForInvoice(BaseModel):
+    """订单商品明细（用于开票）"""
+    id: int
+    product_id: int
+    product_name: Optional[str] = None
+    product_model: Optional[str] = None
+    quantity: float  # 订单数量
+    invoiced_quantity: float = 0  # 已开票数量
+    available_quantity: float  # 可开票数量
+    discounted_price_tax: float  # 含税优惠价
+    line_total: float  # 订单小计
+    available_amount: float  # 可开票金额
+
+    class Config:
+        from_attributes = True
+
+
+class OrderInvoiceSummary(BaseModel):
+    """订单可开票汇总"""
+    order_id: int
+    order_no: int
+    order_date: datetime
+    customer_name: Optional[str] = None
+    total_amount: float  # 订单总金额
+    invoiced_amount: float  # 已开票金额
+    balance_amount: float  # 可开票余额
+    items: List[SalesOrderItemForInvoice] = []
+
+
+class InvoiceItemCreateFromOrder(BaseModel):
+    """从订单创建发票明细"""
+    order_item_id: int
+    quantity: float  # 本次开票数量
+    amount: float  # 本次开票金额（含税）
+    tax_amount: float = 0  # 本次税额
+
+
+class InvoiceCreateFromOrder(BaseModel):
+    """从订单创建发票"""
+    invoice_no: str
+    invoice_date: datetime
+    customer_id: int
+    remark: Optional[str] = None
+    items: List[InvoiceItemCreateFromOrder]
