@@ -4,7 +4,7 @@
 
 ## 项目概述
 
-适用于10人以内小型销售公司的极简进销存系统。后端采用 FastAPI + SQLite，前端采用 Vue3 + ElementPlus。
+适用于10人以内小型销售公司的进销存系统，同时包含简单的进销开票管理功能。后端采用 FastAPI + SQLite，前端采用 Vue3 + ElementPlus。
 
 ## 命令
 
