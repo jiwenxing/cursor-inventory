@@ -236,7 +236,7 @@ def create_invoice(invoice: InvoiceCreate, db: Session = Depends(get_db), curren
     db.add(db_invoice)
     db.flush()
 
-    # 创建发票明细
+    # 创建发票明细和商品明细开票记录
     for item in invoice.items:
         order = db.query(SalesOrder).filter(SalesOrder.id == item.order_id).first()
         db_item = InvoiceItem(
@@ -247,6 +247,29 @@ def create_invoice(invoice: InvoiceCreate, db: Session = Depends(get_db), curren
             tax_amount=item.tax_amount
         )
         db.add(db_item)
+        db.flush()
+
+        # 为该订单的所有商品明细创建开票记录（按金额比例分配）
+        order_items = db.query(SalesOrderItem).filter(SalesOrderItem.order_id == item.order_id).all()
+        order_total = sum(oi.line_total for oi in order_items)
+
+        if order_total > 0:
+            for order_item in order_items:
+                # 按该商品明细占订单总金额的比例分配开票金额
+                ratio = order_item.line_total / order_total
+                invoiced_amount = item.amount * ratio
+                invoiced_tax = item.tax_amount * ratio
+                # 计算开票数量（按金额比例）
+                invoiced_quantity = order_item.quantity * ratio
+
+                db_soi = SalesOrderItemInvoice(
+                    order_item_id=order_item.id,
+                    invoice_item_id=db_item.id,
+                    invoiced_quantity=invoiced_quantity,
+                    invoiced_amount=invoiced_amount,
+                    invoiced_tax_amount=invoiced_tax
+                )
+                db.add(db_soi)
 
     db.commit()
     db.refresh(db_invoice)

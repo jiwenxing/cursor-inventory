@@ -239,6 +239,19 @@ class InvoiceItemCreate(BaseModel):
     tax_amount: float = 0
 
 
+class ProductItemForInvoice(BaseModel):
+    """发票关联订单的商品明细"""
+    id: int
+    order_item_id: int
+    product_id: int
+    product_name: Optional[str] = None
+    product_model: Optional[str] = None
+    quantity: float
+    unit_price: float
+    amount: float
+    tax_amount: float
+
+
 class InvoiceItemResponse(BaseModel):
     id: int
     invoice_id: int
@@ -251,6 +264,7 @@ class InvoiceItemResponse(BaseModel):
     contract_amount: Optional[float] = None
     amount: float
     tax_amount: float
+    product_items: List[ProductItemForInvoice] = []
 
     class Config:
         from_attributes = True
