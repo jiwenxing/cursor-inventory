@@ -231,13 +231,19 @@
         <el-table :data="form.items" border style="width: 100%">
           <el-table-column label="商品" min-width="120" resizable>
             <template #default="{ row, $index }">
-              <el-select v-model="row.product_id" filterable placeholder="选择商品" style="width: 100%" @change="handleProductChange($index)">
+              <el-select v-model="row.product_id" filterable placeholder="选择商品" style="width: 100%" @change="handleProductSelectChange($index)">
                 <el-option
                   v-for="product in products"
                   :key="product.id"
                   :label="`${product.name} (${product.model})`"
                   :value="product.id"
                 />
+                <el-option
+                  value="add_new"
+                  label="+ 新增商品"
+                >
+                  <span style="color: #67c23a; font-weight: bold;">+ 新增商品</span>
+                </el-option>
               </el-select>
             </template>
           </el-table-column>
@@ -473,6 +479,71 @@
         <el-button type="primary" @click="handleSubmitInvoice" :disabled="selectedInvoiceItems.length === 0 || calculateInvoiceTotal() <= 0">确认开票</el-button>
       </template>
     </el-dialog>
+
+    <!-- 快速新增商品对话框 -->
+    <el-dialog v-model="quickAddProductDialogVisible" title="快速新增商品" width="600px" @close="handleCloseQuickAddDialog">
+      <el-form :model="quickAddProductForm" :rules="quickAddProductRules" ref="quickAddProductFormRef" label-width="100px">
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="商品名称" prop="name">
+              <el-input v-model="quickAddProductForm.name" placeholder="请输入商品名称" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="型号" prop="model">
+              <el-input v-model="quickAddProductForm.model" placeholder="请输入型号" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="品牌" prop="brand">
+              <el-input v-model="quickAddProductForm.brand" placeholder="请输入品牌（可选）" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="单位" prop="unit">
+              <el-input v-model="quickAddProductForm.unit" placeholder="件" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="采购价" prop="purchase_price">
+              <el-input-number v-model="quickAddProductForm.purchase_price" :min="0" :precision="2" style="width: 100%" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="零售价" prop="retail_price">
+              <el-input-number v-model="quickAddProductForm.retail_price" :min="0" :precision="2" style="width: 100%" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="税率" prop="tax_rate">
+              <el-input-number v-model="quickAddProductForm.tax_rate" :min="0" :max="1" :step="0.01" :precision="2" style="width: 100%" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="供应商" prop="supplier_id">
+              <el-select v-model="quickAddProductForm.supplier_id" placeholder="选择供应商（可选）" clearable style="width: 100%">
+                <el-option
+                  v-for="s in suppliers"
+                  :key="s.id"
+                  :label="s.name"
+                  :value="s.id"
+                />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+      </el-form>
+      <template #footer>
+        <el-button @click="quickAddProductDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleSubmitQuickAddProduct">确定</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -485,6 +556,7 @@ import dayjs from 'dayjs'
 const orders = ref([])
 const customers = ref([])
 const products = ref([])
+const suppliers = ref([])
 const loading = ref(false)
 const dialogVisible = ref(false)
 const paymentDialogVisible = ref(false)
@@ -505,6 +577,26 @@ const invoiceForm = reactive({
   invoice_date: new Date(),
   remark: ''
 })
+
+// 快速新增商品相关
+const quickAddProductDialogVisible = ref(false)
+const quickAddProductFormRef = ref(null)
+const currentEditingItemIndex = ref(null)
+const quickAddProductForm = reactive({
+  name: '',
+  model: '',
+  brand: '',
+  unit: '件',
+  tax_rate: 0.13,
+  purchase_price: 0,
+  retail_price: 0,
+  supplier_id: null
+})
+
+const quickAddProductRules = {
+  name: [{ required: true, message: '请输入商品名称', trigger: 'blur' }],
+  model: [{ required: true, message: '请输入型号', trigger: 'blur' }]
+}
 
 // 分页相关
 const total = ref(0)
@@ -702,6 +794,16 @@ const loadProducts = async () => {
   }
 }
 
+// 加载供应商列表
+const loadSuppliers = async () => {
+  try {
+    const response = await api.get('/suppliers/', { params: { limit: 1000 } })
+    suppliers.value = response.data.items
+  } catch (error) {
+    console.error('加载供应商列表失败', error)
+  }
+}
+
 const handleAdd = () => {
   editingId.value = null
   dialogTitle.value = '新增订单'
@@ -760,6 +862,18 @@ const removeItem = (index) => {
   form.items.splice(index, 1)
 }
 
+// 处理商品选择变化
+const handleProductSelectChange = (index) => {
+  const productId = form.items[index].product_id
+  if (productId === 'add_new') {
+    // 用户选择了"新增商品"，打开快速新增对话框
+    handleQuickAddProduct(index)
+  } else {
+    // 用户选择了现有商品
+    handleProductChange(index)
+  }
+}
+
 const handleProductChange = (index) => {
   const product = products.value.find(p => p.id === form.items[index].product_id)
   if (product) {
@@ -767,6 +881,81 @@ const handleProductChange = (index) => {
     form.items[index].discounted_price_tax = product.retail_price || 0
     calculateItem(index)
   }
+}
+
+// 快速新增商品
+const handleQuickAddProduct = (index) => {
+  // 重置表单
+  Object.assign(quickAddProductForm, {
+    name: '',
+    model: '',
+    brand: '',
+    unit: '件',
+    tax_rate: 0.13,
+    purchase_price: 0,
+    retail_price: 0,
+    supplier_id: null
+  })
+  currentEditingItemIndex.value = index
+  // 将 product_id 临时设回 null，避免下拉框显示"新增商品"
+  form.items[index].product_id = null
+  quickAddProductDialogVisible.value = true
+}
+
+const handleCloseQuickAddDialog = () => {
+  // 关闭对话框时，如果当前行没有选择商品，则重置为 null
+  if (currentEditingItemIndex.value !== null) {
+    const index = currentEditingItemIndex.value
+    if (!form.items[index].product_id) {
+      form.items[index].product_id = null
+    }
+  }
+  currentEditingItemIndex.value = null
+}
+
+const handleSubmitQuickAddProduct = async () => {
+  await quickAddProductFormRef.value.validate(async (valid) => {
+    if (valid) {
+      try {
+        const submitData = { ...quickAddProductForm }
+        if (submitData.supplier_id === null) {
+          submitData.supplier_id = undefined
+        }
+
+        const response = await api.post('/products/', submitData)
+        ElMessage.success('创建商品成功')
+
+        // 将新商品添加到列表中
+        const newProduct = response.data
+        products.value.unshift({
+          id: newProduct.id,
+          name: newProduct.name,
+          model: newProduct.model,
+          brand: newProduct.brand,
+          unit: newProduct.unit,
+          tax_rate: newProduct.tax_rate,
+          purchase_price: newProduct.purchase_price,
+          retail_price: newProduct.retail_price,
+          supplier_id: newProduct.supplier_id,
+          supplier_name: newProduct.supplier_name
+        })
+
+        // 自动选中该商品
+        if (currentEditingItemIndex.value !== null) {
+          const index = currentEditingItemIndex.value
+          form.items[index].product_id = newProduct.id
+          form.items[index].unit_price_tax = newProduct.retail_price || 0
+          form.items[index].discounted_price_tax = newProduct.retail_price || 0
+          calculateItem(index)
+        }
+
+        quickAddProductDialogVisible.value = false
+        currentEditingItemIndex.value = null
+      } catch (error) {
+        ElMessage.error(error.response?.data?.detail || '创建商品失败')
+      }
+    }
+  })
 }
 
 const calculateItem = (index) => {
@@ -1054,6 +1243,7 @@ onMounted(() => {
   loadOrders()
   loadCustomers()
   loadProducts()
+  loadSuppliers()
 })
 </script>
 
