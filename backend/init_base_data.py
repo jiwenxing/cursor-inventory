@@ -8,19 +8,18 @@
 功能：
     1. 创建数据库表（如果不存在）
     2. 创建管理员账号（如果不存在）
-    3. 生成基础测试数据（客户、供应商、商品、初始库存）
+    3. 生成基础测试数据（客户、供应商、商品）
     4. 重置自增 ID 起始值
 """
 from sqlalchemy import text
 from app.database import SessionLocal, engine, Base
-from app.models import User, Customer, Supplier, Product, InventoryRecord, InventorySummary
+from app.models import User, Customer, Supplier, Product
 from app.utils import get_password_hash
 
 
 # 所有需要设置起始 ID 的表
 AUTOINCREMENT_TABLES = [
-    "users", "customers", "suppliers", "products",
-    "inventory_records", "inventory_summary"
+    "users", "customers", "suppliers", "products"
 ]
 
 # ID 起始值（从 12600000 开始）
@@ -75,7 +74,6 @@ def init_base_data():
         print(f"  - 客户：8 个")
         print(f"  - 供应商：3 个")
         print(f"  - 商品：10 个")
-        print(f"  - 初始库存：每种商品 100 件")
         print("\n提示：如需生成完整测试数据（含订单、发票），请运行：python init_db.py")
 
     except Exception as e:
@@ -134,23 +132,6 @@ def generate_base_data(db):
     db.flush()
     print(f"  ✓ 创建 {len(products)} 个商品")
 
-    # 4. 创建初始库存（每种商品 100 件）
-    for p in products:
-        # 创建入库记录
-        record = InventoryRecord(
-            product_id=p.id,
-            type="IN",
-            quantity=100,
-            related_order_id=None,
-            related_order_type=None
-        )
-        db.add(record)
-
-        # 创建库存汇总
-        summary = InventorySummary(product_id=p.id, current_stock=100)
-        db.add(summary)
-    db.flush()
-    print(f"  ✓ 创建库存记录（每种商品 100 件）")
 
 
 if __name__ == "__main__":
