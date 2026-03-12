@@ -154,12 +154,13 @@
           </div>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="280" fixed="right">
+      <el-table-column label="操作" width="350" fixed="right">
         <template #default="{ row }">
           <el-button size="small" link @click="handleView(row)">查看</el-button>
           <el-button size="small" link type="primary" @click="handleEdit(row)">编辑</el-button>
           <el-button size="small" link type="success" @click="handlePayment(row)">收款</el-button>
           <el-button size="small" link type="warning" @click="handleInvoice(row)" :disabled="(row.balance_amount || 0) <= 0">开票</el-button>
+          <el-button size="small" link type="info" @click="handlePurchase(row)">采购</el-button>
           <el-button size="small" link type="danger" @click="handleDelete(row)">删除</el-button>
         </template>
       </el-table-column>
@@ -544,11 +545,164 @@
         <el-button type="primary" @click="handleSubmitQuickAddProduct">确定</el-button>
       </template>
     </el-dialog>
+
+    <!-- 采购建议对话框 -->
+    <el-dialog v-model="purchaseDialogVisible" title="采购建议" width="1100px">
+      <div v-if="currentSalesOrderForPurchase" style="margin-bottom: 15px;">
+        <el-descriptions title="销售订单信息" :column="3" border>
+          <el-descriptions-item label="订单号">{{ currentSalesOrderForPurchase.id }}</el-descriptions-item>
+          <el-descriptions-item label="客户">{{ currentSalesOrderForPurchase.customer_name }}</el-descriptions-item>
+          <el-descriptions-item label="订单日期">{{ formatDate(currentSalesOrderForPurchase.order_date) }}</el-descriptions-item>
+        </el-descriptions>
+      </div>
+
+      <el-form :model="purchaseForm" label-width="100px">
+        <el-row :gutter="20">
+          <el-col :span="8">
+            <el-form-item label="订单日期" prop="order_date">
+              <el-date-picker v-model="purchaseForm.order_date" type="datetime" style="width: 100%" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="备注" prop="remark">
+              <el-input v-model="purchaseForm.remark" placeholder="备注（可选）" style="width: 100%" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="统一日期">
+              <el-checkbox v-model="useSameDate" :disabled="true">所有订单使用相同日期</el-checkbox>
+            </el-form-item>
+          </el-col>
+        </el-row>
+      </el-form>
+
+      <el-divider>按供应商分组</el-divider>
+
+      <el-collapse v-model="activeGroupIndexes" accordion>
+        <el-collapse-item
+          v-for="(group, groupIndex) in purchaseGroups"
+          :key="groupIndex"
+          :name="groupIndex"
+        >
+          <template #title>
+            <div style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <el-checkbox
+                  v-model="group.selected"
+                  @click.stop
+                  :disabled="!group.items.some(i => i.purchase_quantity > 0)"
+                >
+                  <span style="font-weight: bold; color: #303133;">{{ group.supplier_name }}</span>
+                </el-checkbox>
+                <el-tag size="small" type="info">{{ group.items.length }} 个商品</el-tag>
+              </div>
+              <div style="color: #67c23a; font-weight: bold;">
+                小计：¥{{ groupTotal(group).toFixed(2) }}
+              </div>
+            </div>
+          </template>
+
+          <el-table :data="group.items" border style="width: 100%" size="small">
+            <el-table-column label="商品" min-width="150">
+              <template #default="{ row }">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <el-checkbox
+                    v-model="row.selected"
+                    @change="handleItemSelectChange(group)"
+                    size="small"
+                  />
+                  <span>{{ row.product_name }} ({{ row.product_model }})</span>
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column label="销售数" width="70" align="center">
+              <template #default="{ row }">
+                {{ row.sales_quantity }}
+              </template>
+            </el-table-column>
+            <el-table-column label="库存" width="60" align="center">
+              <template #default="{ row }">
+                <span :style="{ color: row.current_stock >= row.sales_quantity ? '#67c23a' : '#f56c6c', fontWeight: 'bold' }">
+                  {{ row.current_stock }}
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column label="建议数" width="60" align="center">
+              <template #default="{ row }">
+                {{ row.suggested_quantity }}
+              </template>
+            </el-table-column>
+            <el-table-column label="采购数" width="90" align="center">
+              <template #default="{ row, $index }">
+                <el-input-number
+                  v-model="row.purchase_quantity"
+                  :min="0"
+                  :step="1"
+                  size="small"
+                  controls-position="right"
+                  style="width: 80px"
+                  @change="handlePurchaseQuantityChange(group, $index)"
+                />
+              </template>
+            </el-table-column>
+            <el-table-column label="单价" width="90" align="center">
+              <template #default="{ row, $index }">
+                <el-input-number
+                  v-model="row.purchase_price"
+                  :min="0"
+                  :precision="2"
+                  size="small"
+                  controls-position="right"
+                  style="width: 80px"
+                />
+              </template>
+            </el-table-column>
+            <el-table-column label="金额" width="100" align="center">
+              <template #default="{ row }">
+                <span style="color: #e6a23c; font-weight: bold;">
+                  ¥{{ (row.purchase_quantity * row.purchase_price).toFixed(2) }}
+                </span>
+              </template>
+            </el-table-column>
+          </el-table>
+
+          <div style="margin-top: 10px; text-align: right;">
+            <el-button
+              size="small"
+              type="danger"
+              @click.stop="handleRemoveGroup(groupIndex)"
+              v-if="purchaseGroups.length > 1"
+            >
+              取消此供应商
+            </el-button>
+          </div>
+        </el-collapse-item>
+      </el-collapse>
+
+      <div style="margin-top: 20px; padding: 15px; background-color: #f5f7fa; border-radius: 4px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span style="color: #909399;">
+            已选择 <span style="color: #409EFF; font-weight: bold;">{{ selectedGroupCount }}</span> 个供应商，
+            共 <span style="color: #409EFF; font-weight: bold;">{{ totalSelectedItemsCount }}</span> 个商品
+          </span>
+          <span style="font-size: 18px; color: #e6a23c; font-weight: bold;">
+            总计：¥{{ grandTotal.toFixed(2) }}
+          </span>
+        </div>
+      </div>
+
+      <template #footer>
+        <el-button @click="purchaseDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleBatchCreatePurchaseOrders" :disabled="selectedGroupCount === 0">
+          生成 {{ selectedGroupCount }} 个采购订单
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import api from '../api'
 import dayjs from 'dayjs'
@@ -592,6 +746,17 @@ const quickAddProductForm = reactive({
   retail_price: 0,
   supplier_id: null
 })
+
+// 采购建议相关
+const purchaseDialogVisible = ref(false)
+const purchaseGroups = ref([])  // 按供应商分组的数据
+const currentSalesOrderForPurchase = ref(null)
+const purchaseForm = reactive({
+  order_date: new Date(),
+  remark: ''
+})
+const activeGroupIndexes = ref([])  // 当前展开的分组索引
+const useSameDate = ref(true)  // 是否使用统一日期
 
 const quickAddProductRules = {
   name: [{ required: true, message: '请输入商品名称', trigger: 'blur' }],
@@ -1236,6 +1401,150 @@ const handleSubmitInvoice = async () => {
     await loadOrders()
   } catch (error) {
     ElMessage.error(error.response?.data?.detail || '开票失败')
+  }
+}
+
+// ==================== 采购建议相关方法 ====================
+
+// 计算组总金额
+const groupTotal = (group) => {
+  return group.items.reduce((sum, item) => {
+    return sum + (item.purchase_quantity * item.purchase_price)
+  }, 0)
+}
+
+// 计算选中的组总金额
+const grandTotal = computed(() => {
+  return purchaseGroups.value
+    .filter(g => g.selected)
+    .reduce((sum, group) => sum + groupTotal(group), 0)
+})
+
+// 选中的供应商数量
+const selectedGroupCount = computed(() => {
+  return purchaseGroups.value.filter(g => g.selected).length
+})
+
+// 选中的商品总数（采购数量 > 0）
+const totalSelectedItemsCount = computed(() => {
+  return purchaseGroups.value
+    .filter(g => g.selected)
+    .reduce((sum, group) => sum + group.items.filter(i => i.purchase_quantity > 0).length, 0)
+})
+
+// 打开采购建议对话框
+const handlePurchase = async (row) => {
+  currentSalesOrderForPurchase.value = row
+  purchaseForm.order_date = new Date()
+  purchaseForm.remark = ''
+
+  try {
+    const response = await api.get(`/sales-orders/${row.id}/purchase-suggestions`)
+    // 后端返回的是分组数据
+    purchaseGroups.value = response.data.groups.map(group => ({
+      ...group,
+      selected: true,  // 默认选中
+      items: group.items.map(item => ({
+        ...item,
+        purchase_quantity: item.suggested_quantity,  // 默认使用建议采购量
+        selected: true  // 默认选中商品
+      }))
+    }))
+
+    // 如果有建议商品，打开对话框
+    if (purchaseGroups.value.length > 0) {
+      purchaseDialogVisible.value = true
+      // 默认展开第一个分组
+      activeGroupIndexes.value = [0]
+    } else {
+      ElMessage.info('该订单没有需要采购的商品')
+    }
+  } catch (error) {
+    ElMessage.error('获取采购建议失败')
+    console.error(error)
+  }
+}
+
+// 调整采购数量
+const handlePurchaseQuantityChange = (group, index) => {
+  const item = group.items[index]
+  if (item.purchase_quantity < 0) {
+    item.purchase_quantity = 0
+  }
+  // 如果采购数量为 0，自动取消选中该商品
+  if (item.purchase_quantity === 0) {
+    item.selected = false
+  } else {
+    item.selected = true
+  }
+}
+
+// 处理商品选中状态变化
+const handleItemSelectChange = (group) => {
+  // 如果所有商品都未选中，取消选中该组
+  const hasSelectedItems = group.items.some(item => item.selected)
+  if (!hasSelectedItems) {
+    group.selected = false
+  } else {
+    group.selected = true
+  }
+}
+
+// 删除分组
+const handleRemoveGroup = (index) => {
+  purchaseGroups.value.splice(index, 1)
+  if (purchaseGroups.value.length > 0) {
+    activeGroupIndexes.value = [0]
+  }
+}
+
+// 批量创建采购订单
+const handleBatchCreatePurchaseOrders = async () => {
+  const selectedGroups = purchaseGroups.value.filter(g => g.selected)
+
+  if (selectedGroups.length === 0) {
+    ElMessage.warning('请至少选择一个供应商')
+    return
+  }
+
+  // 构建请求数据
+  const groups = selectedGroups.map(group => {
+    const selectedItems = group.items.filter(item => item.selected && item.purchase_quantity > 0)
+    if (selectedItems.length === 0) {
+      return null
+    }
+    return {
+      supplier_id: group.supplier_id,
+      supplier_name: group.supplier_name,
+      items: selectedItems.map(item => ({
+        product_id: item.product_id,
+        quantity: item.purchase_quantity,
+        unit_price: item.purchase_price,
+        source_sales_order_id: currentSalesOrderForPurchase.value.id,
+        purchase_status: '待下单'
+      })),
+      remark: purchaseForm.remark || `从销售订单 SO-${currentSalesOrderForPurchase.value.id} 生成`
+    }
+  }).filter(g => g !== null)
+
+  if (groups.length === 0) {
+    ElMessage.warning('请至少选择一个商品进行采购')
+    return
+  }
+
+  try {
+    const payload = {
+      order_date: purchaseForm.order_date.toISOString(),
+      groups: groups
+    }
+
+    await api.post(`/purchase-orders/batch-from-sales-order/${currentSalesOrderForPurchase.value.id}`, payload)
+    ElMessage.success(`成功创建 ${groups.length} 个采购订单`)
+    purchaseDialogVisible.value = false
+    // 刷新订单列表
+    loadOrders()
+  } catch (error) {
+    ElMessage.error(error.response?.data?.detail || '创建采购订单失败')
   }
 }
 

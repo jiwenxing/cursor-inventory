@@ -97,6 +97,28 @@
                   </span>
                 </template>
               </el-table-column>
+              <el-table-column label="采购状态" width="100">
+                <template #default="{ row }">
+                  <el-select
+                    v-model="row.purchase_status"
+                    size="small"
+                    :disabled="row.received_quantity > 0"
+                    @change="handlePurchaseStatusChange(row, row)"
+                  >
+                    <el-option label="待下单" value="待下单" />
+                    <el-option label="待确认" value="待确认" />
+                    <el-option label="已下单" value="已下单" />
+                  </el-select>
+                </template>
+              </el-table-column>
+              <el-table-column label="来源订单" width="100">
+                <template #default="{ row }">
+                  <span v-if="row.source_sales_order_id" style="color: #409EFF">
+                    SO-{{ row.source_sales_order_id }}
+                  </span>
+                  <span v-else style="color: #909399">-</span>
+                </template>
+              </el-table-column>
               <el-table-column prop="line_total" label="行金额" width="90">
                 <template #default="{ row }">
                   ¥{{ row.line_total?.toFixed(2) }}
@@ -126,11 +148,12 @@
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="180" fixed="right">
+      <el-table-column label="操作" width="230" fixed="right">
         <template #default="{ row }">
           <el-button size="small" link @click="handleView(row)">查看</el-button>
           <el-button size="small" link type="primary" @click="handleEdit(row)" :disabled="row.status === '已完成'">编辑</el-button>
-          <el-button size="small" link type="danger" @click="handleDelete(row)" :disabled="row.items?.some(i => i.received_quantity > 0)">删除</el-button>
+          <el-button size="small" link type="success" @click="handleReceive(row)" :disabled="row.status === '已完成'">入库</el-button>
+          <el-button size="small" link type="danger" @click="handleDelete(row)" :disabled="row.items?.some(i => i.received_quantity > 0) || row.items?.some(i => i.purchase_status === '已下单')">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -221,6 +244,58 @@
         <el-button type="primary" @click="handleSubmit">确定</el-button>
       </template>
     </el-dialog>
+
+    <!-- 入库对话框 -->
+    <el-dialog v-model="receiveDialogVisible" title="采购入库" width="800px">
+      <div v-if="currentOrder" style="margin-bottom: 15px;">
+        <el-descriptions title="采购订单信息" :column="3" border>
+          <el-descriptions-item label="订单号">{{ currentOrder.id }}</el-descriptions-item>
+          <el-descriptions-item label="供应商">{{ currentOrder.supplier_name }}</el-descriptions-item>
+          <el-descriptions-item label="订单日期">{{ formatDate(currentOrder.order_date) }}</el-descriptions-item>
+        </el-descriptions>
+      </div>
+
+      <el-table :data="receiveItems" style="width: 100%">
+        <el-table-column prop="product_name" label="商品" show-overflow-tooltip />
+        <el-table-column prop="product_model" label="型号" width="100" />
+        <el-table-column prop="quantity" label="采购数量" width="80" />
+        <el-table-column prop="received_quantity" label="已入库" width="80" />
+        <el-table-column label="未入库" width="80">
+          <template #default="{ row }">
+            {{ row.quantity - row.received_quantity }}
+          </template>
+        </el-table-column>
+        <el-table-column label="采购状态" width="80">
+          <template #default="{ row }">
+            <el-tag :type="row.purchase_status === '已下单' ? 'success' : 'info'" size="small">
+              {{ row.purchase_status }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="本次入库" width="120">
+          <template #default="{ row, $index }">
+            <el-input-number
+              v-model="row.receive_quantity"
+              :min="0"
+              :max="row.quantity - row.received_quantity"
+              :disabled="row.purchase_status !== '已下单'"
+              size="small"
+              controls-position="right"
+              style="width: 100%"
+            />
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <div style="margin-top: 15px; color: #909399; font-size: 13px;">
+        <el-icon><info-filled /></el-icon> 只有采购状态为「已下单」的商品才能入库
+      </div>
+
+      <template #footer>
+        <el-button @click="receiveDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleConfirmReceive">确定</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -235,9 +310,12 @@ const suppliers = ref([])
 const products = ref([])
 const loading = ref(false)
 const dialogVisible = ref(false)
+const receiveDialogVisible = ref(false)
 const dialogTitle = ref('新增订单')
 const formRef = ref(null)
 const editingId = ref(null)
+const currentOrder = ref(null)
+const receiveItems = ref([])
 
 // 分页相关
 const total = ref(0)
@@ -534,6 +612,67 @@ const handleDelete = async (row) => {
     if (error !== 'cancel') {
       ElMessage.error(error.response?.data?.detail || '删除失败')
     }
+  }
+}
+
+// 修改采购状态
+const handlePurchaseStatusChange = async (order, item) => {
+  try {
+    await api.put(`/purchase-orders/${order.id}/items/${item.id}/purchase-status`, {
+      purchase_status: item.purchase_status
+    })
+    ElMessage.success('状态更新成功')
+  } catch (error) {
+    ElMessage.error(error.response?.data?.detail || '状态更新失败')
+    // 恢复原状态
+    item.purchase_status = order.items.find(i => i.id === item.id)?.purchase_status || '待下单'
+  }
+}
+
+// 打开入库对话框
+const handleReceive = async (row) => {
+  currentOrder.value = row
+  // 初始化入库数量
+  receiveItems.value = row.items.map(item => ({
+    ...item,
+    receive_quantity: 0
+  }))
+  receiveDialogVisible.value = true
+}
+
+// 确认入库
+const handleConfirmReceive = async () => {
+  // 过滤出本次入库数量大于 0 的商品
+  const itemsToReceive = receiveItems.value
+    .filter(item => item.receive_quantity > 0)
+
+  if (itemsToReceive.length === 0) {
+    ElMessage.warning('请输入入库数量')
+    return
+  }
+
+  // 检查采购状态
+  for (const item of itemsToReceive) {
+    if (item.purchase_status !== '已下单') {
+      ElMessage.error(`商品「${item.product_name}」采购状态为「${item.purchase_status}」，尚未下单给供应商，无法入库`)
+      return
+    }
+  }
+
+  try {
+    const payload = {
+      items: itemsToReceive.map(item => ({
+        order_item_id: item.id,
+        received_quantity: item.receive_quantity
+      }))
+    }
+
+    await api.post(`/purchase-orders/${currentOrder.value.id}/receive`, payload)
+    ElMessage.success('入库成功')
+    receiveDialogVisible.value = false
+    loadOrders()
+  } catch (error) {
+    ElMessage.error(error.response?.data?.detail || '入库失败')
   }
 }
 

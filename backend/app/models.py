@@ -240,6 +240,13 @@ class PurchaseOrderStatus(str, enum.Enum):
     COMPLETED = "已完成"
 
 
+class PurchaseItemStatus(str, enum.Enum):
+    """采购明细状态"""
+    PENDING_ORDER = "待下单"
+    PENDING_CONFIRM = "待确认"
+    ORDERED = "已下单"
+
+
 class PurchaseOrder(Base):
     __tablename__ = "purchase_orders"
 
@@ -268,9 +275,12 @@ class PurchaseOrderItem(Base):
     unit_price = Column(Float, nullable=False)  # 采购单价
     received_quantity = Column(Float, default=0)  # 已入库数量
     line_total = Column(Float, nullable=False)  # 小计金额
+    source_sales_order_id = Column(Integer, ForeignKey("sales_orders.id"), nullable=True)  # 来源销售订单 ID
+    purchase_status = Column(String(20), default=PurchaseItemStatus.PENDING_ORDER.value)  # 采购状态
 
     order = relationship("PurchaseOrder", back_populates="items")
     product = relationship("Product", back_populates="purchase_order_items")
+    source_sales_order = relationship("SalesOrder", foreign_keys=[source_sales_order_id])
 
 
 class PurchaseInvoiceItem(Base):

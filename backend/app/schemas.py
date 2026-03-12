@@ -367,6 +367,8 @@ class PurchaseOrderItemCreate(BaseModel):
     product_id: int
     quantity: float
     unit_price: float
+    source_sales_order_id: Optional[int] = None  # 来源销售订单 ID
+    purchase_status: str = "待下单"  # 采购状态
 
 
 class PurchaseOrderItemResponse(BaseModel):
@@ -379,6 +381,9 @@ class PurchaseOrderItemResponse(BaseModel):
     received_quantity: float
     unreceived_quantity: float  # 未入库数量
     line_total: float
+    source_sales_order_id: Optional[int] = None  # 来源销售订单 ID
+    purchase_status: str = "待下单"  # 采购状态
+    current_stock: Optional[float] = 0  # 当前库存（用于采购建议）
 
     class Config:
         from_attributes = True
@@ -468,3 +473,70 @@ class InvoiceCreateFromOrder(BaseModel):
     customer_id: int
     remark: Optional[str] = None
     items: List[InvoiceItemCreateFromOrder]
+
+
+# ==================== 采购建议相关 ====================
+
+class PurchaseSuggestionItem(BaseModel):
+    """采购建议明细"""
+    product_id: int
+    product_name: Optional[str] = None
+    product_model: Optional[str] = None
+    sales_quantity: float  # 销售订单数量
+    current_stock: float  # 当前库存
+    suggested_quantity: float  # 建议采购量
+    purchase_price: float  # 默认采购价
+    supplier_id: Optional[int] = None
+    supplier_name: Optional[str] = None
+
+
+class PurchaseSuggestionGroup(BaseModel):
+    """按供应商分组的采购建议"""
+    supplier_id: int
+    supplier_name: str
+    items: List[PurchaseSuggestionItem]
+    total_amount: float  # 该组总金额（建议数量 * 单价）
+
+
+class PurchaseSuggestionResponse(BaseModel):
+    """采购建议响应（分组后）"""
+    sales_order_id: int
+    sales_order_no: int
+    order_date: datetime
+    customer_name: Optional[str] = None
+    groups: List[PurchaseSuggestionGroup]  # 按供应商分组
+    total_amount: float  # 所有组总金额
+
+
+class PurchaseOrderGroupCreate(BaseModel):
+    """单个供应商分组的采购订单数据"""
+    supplier_id: int
+    supplier_name: Optional[str] = None  # 用于前端显示
+    items: List[PurchaseOrderItemCreate]
+    remark: Optional[str] = None
+    order_date: Optional[datetime] = None  # 可选，不传则使用统一的 order_date
+
+
+class PurchaseOrderBatchCreate(BaseModel):
+    """批量创建采购订单"""
+    order_date: datetime
+    remark: Optional[str] = None
+    groups: List[PurchaseOrderGroupCreate]
+
+
+class PurchaseOrderCreateFromSalesOrder(BaseModel):
+    """从销售订单创建采购订单（保留向后兼容）"""
+    order_date: datetime
+    supplier_id: int
+    remark: Optional[str] = None
+    items: List[PurchaseOrderItemCreate]
+
+
+class PurchaseStatusUpdate(BaseModel):
+    """更新采购状态"""
+    purchase_status: str
+
+
+class PurchaseOrderReceive(BaseModel):
+    """采购入库"""
+    items: List[dict]  # [{order_item_id: int, received_quantity: float}]

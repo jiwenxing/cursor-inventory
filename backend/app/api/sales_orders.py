@@ -5,8 +5,8 @@ from sqlalchemy import func
 from typing import List, Optional
 from datetime import datetime
 from app.database import get_db
-from app.models import SalesOrder, SalesOrderItem, Product, Customer, User, InventoryRecord, InventorySummary, InvoiceItem, PaymentRecord
-from app.schemas import SalesOrderCreate, SalesOrderResponse, SalesOrderItemResponse
+from app.models import SalesOrder, SalesOrderItem, Product, Customer, User, InventoryRecord, InventorySummary, InvoiceItem, PaymentRecord, Supplier
+from app.schemas import SalesOrderCreate, SalesOrderResponse, SalesOrderItemResponse, PurchaseSuggestionResponse, PurchaseSuggestionItem, PurchaseSuggestionGroup
 from app.utils import get_current_user
 
 router = APIRouter()
@@ -328,3 +328,93 @@ def delete_sales_order(order_id: int, db: Session = Depends(get_db), current_use
     db.delete(db_order)
     db.commit()
     return {"message": "删除成功"}
+
+
+@router.get("/{order_id}/purchase-suggestions", response_model=PurchaseSuggestionResponse)
+def get_purchase_suggestions(order_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """获取销售订单的采购建议（按供应商自动分组）"""
+    from collections import defaultdict
+
+    # 获取销售订单
+    order = db.query(SalesOrder).filter(SalesOrder.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="销售订单不存在")
+
+    # 获取订单明细
+    order_items = db.query(SalesOrderItem).filter(SalesOrderItem.order_id == order_id).all()
+    if not order_items:
+        return PurchaseSuggestionResponse(
+            sales_order_id=order_id,
+            sales_order_no=order_id,
+            order_date=order.order_date,
+            customer_name=order.customer.name if order.customer else None,
+            groups=[],
+            total_amount=0
+        )
+
+    # 按供应商分组
+    groups_dict = defaultdict(list)
+    for item in order_items:
+        product = db.query(Product).filter(Product.id == item.product_id).first()
+        if not product or not product.supplier_id:
+            continue  # 跳过无供应商的商品
+
+        # 获取当前库存
+        inventory = db.query(InventorySummary).filter(
+            InventorySummary.product_id == product.id
+        ).first()
+        current_stock = inventory.current_stock if inventory else 0
+
+        # 计算建议采购量
+        suggested_qty = max(0, item.quantity - current_stock)
+
+        groups_dict[product.supplier_id].append({
+            'product': product,
+            'sales_quantity': item.quantity,
+            'current_stock': current_stock,
+            'suggested_quantity': suggested_qty
+        })
+
+    # 构建分组响应
+    groups = []
+    total_amount = 0
+
+    for supplier_id, items in groups_dict.items():
+        # 获取供应商名称
+        supplier = db.query(Supplier).filter(Supplier.id == supplier_id).first()
+        supplier_name = supplier.name if supplier else f'供应商{supplier_id}'
+
+        group_items = []
+        group_total = 0
+
+        for item_data in items:
+            product = item_data['product']
+            group_items.append(PurchaseSuggestionItem(
+                product_id=product.id,
+                product_name=product.name,
+                product_model=product.model,
+                sales_quantity=item_data['sales_quantity'],
+                current_stock=item_data['current_stock'],
+                suggested_quantity=item_data['suggested_quantity'],
+                purchase_price=product.purchase_price or 0,
+                supplier_id=supplier_id,
+                supplier_name=supplier_name
+            ))
+            group_total += item_data['suggested_quantity'] * (product.purchase_price or 0)
+
+        groups.append(PurchaseSuggestionGroup(
+            supplier_id=supplier_id,
+            supplier_name=supplier_name,
+            items=group_items,
+            total_amount=group_total
+        ))
+        total_amount += group_total
+
+    return PurchaseSuggestionResponse(
+        sales_order_id=order.id,
+        sales_order_no=order.id,
+        order_date=order.order_date,
+        customer_name=order.customer.name if order.customer else None,
+        groups=groups,
+        total_amount=total_amount
+    )
