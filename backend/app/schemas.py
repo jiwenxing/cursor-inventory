@@ -367,8 +367,6 @@ class PurchaseOrderItemCreate(BaseModel):
     product_id: int
     quantity: float
     unit_price: float
-    source_sales_order_id: Optional[int] = None  # 来源销售订单 ID
-    purchase_status: str = "待下单"  # 采购状态
 
 
 class PurchaseOrderItemResponse(BaseModel):
@@ -381,8 +379,6 @@ class PurchaseOrderItemResponse(BaseModel):
     received_quantity: float
     unreceived_quantity: float  # 未入库数量
     line_total: float
-    source_sales_order_id: Optional[int] = None  # 来源销售订单 ID
-    purchase_status: str = "待下单"  # 采购状态
     current_stock: Optional[float] = 0  # 当前库存（用于采购建议）
 
     class Config:
@@ -392,6 +388,7 @@ class PurchaseOrderItemResponse(BaseModel):
 class PurchaseOrderCreate(BaseModel):
     order_date: datetime
     supplier_id: int
+    source_sales_order_id: Optional[int] = None  # 来源销售订单 ID
     remark: Optional[str] = None
     items: List[PurchaseOrderItemCreate]
 
@@ -405,6 +402,8 @@ class PurchaseOrderResponse(BaseModel):
     purchaser_name: Optional[str] = None
     total_amount: float
     status: str
+    purchase_status: str
+    source_sales_order_id: Optional[int] = None  # 来源销售订单 ID
     remark: Optional[str] = None
     created_at: datetime
     items: List[PurchaseOrderItemResponse] = []

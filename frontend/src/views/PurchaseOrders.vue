@@ -97,28 +97,6 @@
                   </span>
                 </template>
               </el-table-column>
-              <el-table-column label="采购状态" width="100">
-                <template #default="{ row }">
-                  <el-select
-                    v-model="row.purchase_status"
-                    size="small"
-                    :disabled="row.received_quantity > 0"
-                    @change="handlePurchaseStatusChange(row, row)"
-                  >
-                    <el-option label="待下单" value="待下单" />
-                    <el-option label="待确认" value="待确认" />
-                    <el-option label="已下单" value="已下单" />
-                  </el-select>
-                </template>
-              </el-table-column>
-              <el-table-column label="来源订单" width="100">
-                <template #default="{ row }">
-                  <span v-if="row.source_sales_order_id" style="color: #409EFF">
-                    SO-{{ row.source_sales_order_id }}
-                  </span>
-                  <span v-else style="color: #909399">-</span>
-                </template>
-              </el-table-column>
               <el-table-column prop="line_total" label="行金额" width="90">
                 <template #default="{ row }">
                   ¥{{ row.line_total?.toFixed(2) }}
@@ -141,6 +119,28 @@
           ¥{{ row.total_amount?.toFixed(2) }}
         </template>
       </el-table-column>
+      <el-table-column prop="purchase_status" label="采购状态" width="100">
+        <template #default="{ row }">
+          <el-select
+            v-model="row.purchase_status"
+            size="small"
+            :disabled="row.items?.some(i => i.received_quantity > 0)"
+            @change="handlePurchaseStatusChange(row)"
+          >
+            <el-option label="待下单" value="待下单" />
+            <el-option label="待确认" value="待确认" />
+            <el-option label="已下单" value="已下单" />
+          </el-select>
+        </template>
+      </el-table-column>
+      <el-table-column label="来源订单" width="100">
+        <template #default="{ row }">
+          <span v-if="row.source_sales_order_id" style="color: #409EFF">
+            SO-{{ row.source_sales_order_id }}
+          </span>
+          <span v-else style="color: #909399">-</span>
+        </template>
+      </el-table-column>
       <el-table-column prop="status" label="入库状态" width="100">
         <template #default="{ row }">
           <el-tag :type="row.status === '已完成' ? 'success' : row.status === '部分入库' ? 'warning' : 'info'" size="small">
@@ -153,7 +153,7 @@
           <el-button size="small" link @click="handleView(row)">查看</el-button>
           <el-button size="small" link type="primary" @click="handleEdit(row)" :disabled="row.status === '已完成'">编辑</el-button>
           <el-button size="small" link type="success" @click="handleReceive(row)" :disabled="row.status === '已完成'">入库</el-button>
-          <el-button size="small" link type="danger" @click="handleDelete(row)" :disabled="row.items?.some(i => i.received_quantity > 0) || row.items?.some(i => i.purchase_status === '已下单')">删除</el-button>
+          <el-button size="small" link type="danger" @click="handleDelete(row)" :disabled="row.items?.some(i => i.received_quantity > 0) || row.purchase_status === '已下单'">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -252,6 +252,11 @@
           <el-descriptions-item label="订单号">{{ currentOrder.id }}</el-descriptions-item>
           <el-descriptions-item label="供应商">{{ currentOrder.supplier_name }}</el-descriptions-item>
           <el-descriptions-item label="订单日期">{{ formatDate(currentOrder.order_date) }}</el-descriptions-item>
+          <el-descriptions-item label="采购状态">
+            <el-tag :type="currentOrder.purchase_status === '已下单' ? 'success' : 'info'" size="small">
+              {{ currentOrder.purchase_status }}
+            </el-tag>
+          </el-descriptions-item>
         </el-descriptions>
       </div>
 
@@ -265,20 +270,13 @@
             {{ row.quantity - row.received_quantity }}
           </template>
         </el-table-column>
-        <el-table-column label="采购状态" width="80">
-          <template #default="{ row }">
-            <el-tag :type="row.purchase_status === '已下单' ? 'success' : 'info'" size="small">
-              {{ row.purchase_status }}
-            </el-tag>
-          </template>
-        </el-table-column>
         <el-table-column label="本次入库" width="120">
-          <template #default="{ row, $index }">
+          <template #default="{ row }">
             <el-input-number
               v-model="row.receive_quantity"
               :min="0"
               :max="row.quantity - row.received_quantity"
-              :disabled="row.purchase_status !== '已下单'"
+              :disabled="currentOrder.purchase_status !== '已下单'"
               size="small"
               controls-position="right"
               style="width: 100%"
@@ -288,7 +286,7 @@
       </el-table>
 
       <div style="margin-top: 15px; color: #909399; font-size: 13px;">
-        <el-icon><info-filled /></el-icon> 只有采购状态为「已下单」的商品才能入库
+        <el-icon><info-filled /></el-icon> 只有采购状态为「已下单」的订单才能入库
       </div>
 
       <template #footer>
@@ -336,6 +334,7 @@ const searchForm = reactive({
 const form = reactive({
   order_date: new Date(),
   supplier_id: null,
+  source_sales_order_id: null,
   remark: '',
   items: []
 })
@@ -509,6 +508,7 @@ const handleAdd = () => {
   Object.assign(form, {
     order_date: new Date(),
     supplier_id: null,
+    source_sales_order_id: null,
     remark: '',
     items: []
   })
@@ -521,6 +521,7 @@ const handleEdit = (row) => {
   Object.assign(form, {
     order_date: new Date(row.order_date),
     supplier_id: row.supplier_id,
+    source_sales_order_id: row.source_sales_order_id,
     remark: row.remark || '',
     items: row.items.map(item => ({
       product_id: item.product_id,
@@ -580,6 +581,7 @@ const handleSubmit = async () => {
     const payload = {
       order_date: form.order_date.toISOString(),
       supplier_id: form.supplier_id,
+      source_sales_order_id: form.source_sales_order_id,
       remark: form.remark,
       items: form.items.map(item => ({
         product_id: item.product_id,
@@ -616,16 +618,16 @@ const handleDelete = async (row) => {
 }
 
 // 修改采购状态
-const handlePurchaseStatusChange = async (order, item) => {
+const handlePurchaseStatusChange = async (order) => {
   try {
-    await api.put(`/purchase-orders/${order.id}/items/${item.id}/purchase-status`, {
-      purchase_status: item.purchase_status
+    await api.put(`/purchase-orders/${order.id}/purchase-status`, {
+      purchase_status: order.purchase_status
     })
     ElMessage.success('状态更新成功')
   } catch (error) {
     ElMessage.error(error.response?.data?.detail || '状态更新失败')
     // 恢复原状态
-    item.purchase_status = order.items.find(i => i.id === item.id)?.purchase_status || '待下单'
+    await loadOrders()
   }
 }
 
@@ -652,11 +654,9 @@ const handleConfirmReceive = async () => {
   }
 
   // 检查采购状态
-  for (const item of itemsToReceive) {
-    if (item.purchase_status !== '已下单') {
-      ElMessage.error(`商品「${item.product_name}」采购状态为「${item.purchase_status}」，尚未下单给供应商，无法入库`)
-      return
-    }
+  if (currentOrder.value.purchase_status !== '已下单') {
+    ElMessage.error(`采购订单状态为「${currentOrder.value.purchase_status}」，尚未下单给供应商，无法入库`)
+    return
   }
 
   try {

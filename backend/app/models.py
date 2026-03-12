@@ -255,12 +255,15 @@ class PurchaseOrder(Base):
     supplier_id = Column(Integer, ForeignKey("suppliers.id"), nullable=False)  # 供应商 ID
     purchaser_id = Column(Integer, ForeignKey("users.id"), nullable=False)  # 采购员 ID
     total_amount = Column(Float, default=0)  # 订单总金额
-    status = Column(String(20), default=PurchaseOrderStatus.PENDING.value)  # 状态
+    status = Column(String(20), default=PurchaseOrderStatus.PENDING.value)  # 入库状态
+    purchase_status = Column(String(20), default=PurchaseItemStatus.PENDING_ORDER.value)  # 采购状态
+    source_sales_order_id = Column(Integer, ForeignKey("sales_orders.id"), nullable=True)  # 来源销售订单 ID
     remark = Column(Text)  # 备注
     created_at = Column(DateTime, server_default=func.now())
 
     supplier = relationship("Supplier", back_populates="purchase_orders")
     purchaser = relationship("User")
+    source_sales_order = relationship("SalesOrder", foreign_keys=[source_sales_order_id])
     items = relationship("PurchaseOrderItem", back_populates="order", cascade="all, delete-orphan")
     invoice_items = relationship("PurchaseInvoiceItem", back_populates="order")  # 预留：进项发票关联
 
@@ -275,12 +278,9 @@ class PurchaseOrderItem(Base):
     unit_price = Column(Float, nullable=False)  # 采购单价
     received_quantity = Column(Float, default=0)  # 已入库数量
     line_total = Column(Float, nullable=False)  # 小计金额
-    source_sales_order_id = Column(Integer, ForeignKey("sales_orders.id"), nullable=True)  # 来源销售订单 ID
-    purchase_status = Column(String(20), default=PurchaseItemStatus.PENDING_ORDER.value)  # 采购状态
 
     order = relationship("PurchaseOrder", back_populates="items")
     product = relationship("Product", back_populates="purchase_order_items")
-    source_sales_order = relationship("SalesOrder", foreign_keys=[source_sales_order_id])
 
 
 class PurchaseInvoiceItem(Base):

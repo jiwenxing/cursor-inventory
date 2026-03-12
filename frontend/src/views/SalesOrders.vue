@@ -1519,9 +1519,7 @@ const handleBatchCreatePurchaseOrders = async () => {
       items: selectedItems.map(item => ({
         product_id: item.product_id,
         quantity: item.purchase_quantity,
-        unit_price: item.purchase_price,
-        source_sales_order_id: currentSalesOrderForPurchase.value.id,
-        purchase_status: '待下单'
+        unit_price: item.purchase_price
       })),
       remark: purchaseForm.remark || `从销售订单 SO-${currentSalesOrderForPurchase.value.id} 生成`
     }

@@ -23,6 +23,9 @@ def order_to_dict(order: PurchaseOrder, db: Session = None) -> dict:
 
     balance_amount = order.total_amount - invoiced_amount
 
+    # 获取来源销售订单 ID（订单级别）
+    source_sales_order_id = order.source_sales_order_id
+
     return {
         "id": order.id,
         "order_date": order.order_date,
@@ -32,6 +35,8 @@ def order_to_dict(order: PurchaseOrder, db: Session = None) -> dict:
         "purchaser_name": order.purchaser.name if order.purchaser else None,
         "total_amount": order.total_amount,
         "status": order.status,
+        "purchase_status": order.purchase_status,  # 订单级别的采购状态
+        "source_sales_order_id": source_sales_order_id,  # 订单级别的来源销售订单 ID
         "remark": order.remark,
         "created_at": order.created_at,
         "invoiced_amount": invoiced_amount,
@@ -46,8 +51,6 @@ def order_to_dict(order: PurchaseOrder, db: Session = None) -> dict:
             "received_quantity": item.received_quantity,
             "unreceived_quantity": item.quantity - item.received_quantity,
             "line_total": item.line_total,
-            "source_sales_order_id": item.source_sales_order_id,
-            "purchase_status": item.purchase_status,
             "current_stock": db.query(InventorySummary.current_stock).filter(
                 InventorySummary.product_id == item.product_id
             ).scalar() or 0
@@ -66,7 +69,6 @@ def calculate_order_amounts(items_data):
             **item,
             "line_total": line_total,
             "received_quantity": 0,
-            "purchase_status": item.get("purchase_status", "待下单"),
             "source_sales_order_id": item.get("source_sales_order_id")
         })
     return calculated_items, total
@@ -159,6 +161,7 @@ def create_purchase_order(order: PurchaseOrderCreate, db: Session = Depends(get_
         supplier_id=order.supplier_id,
         purchaser_id=current_user.id,
         total_amount=total_amount,
+        source_sales_order_id=order.source_sales_order_id,
         remark=order.remark
     )
     db.add(db_order)
@@ -172,9 +175,7 @@ def create_purchase_order(order: PurchaseOrderCreate, db: Session = Depends(get_
             quantity=item_data["quantity"],
             unit_price=item_data["unit_price"],
             received_quantity=item_data["received_quantity"],
-            line_total=item_data["line_total"],
-            source_sales_order_id=item_data["source_sales_order_id"],
-            purchase_status=item_data["purchase_status"]
+            line_total=item_data["line_total"]
         )
         db.add(db_item)
 
@@ -217,6 +218,7 @@ def create_purchase_order_from_sales_order(
         supplier_id=order_data.supplier_id,
         purchaser_id=current_user.id,
         total_amount=total_amount,
+        source_sales_order_id=sales_order_id,
         remark=order_data.remark or f"从销售订单 SO-{sales_order_id} 生成"
     )
     db.add(db_order)
@@ -230,9 +232,7 @@ def create_purchase_order_from_sales_order(
             quantity=item_data["quantity"],
             unit_price=item_data["unit_price"],
             received_quantity=item_data["received_quantity"],
-            line_total=item_data["line_total"],
-            source_sales_order_id=sales_order_id,
-            purchase_status=item_data["purchase_status"]
+            line_total=item_data["line_total"]
         )
         db.add(db_item)
 
@@ -262,6 +262,7 @@ def update_purchase_order(order_id: int, order: PurchaseOrderCreate, db: Session
     # 更新订单基本信息
     db_order.order_date = order.order_date
     db_order.supplier_id = order.supplier_id
+    db_order.source_sales_order_id = order.source_sales_order_id
     db_order.remark = order.remark
 
     # 重新计算金额并创建明细
@@ -304,9 +305,8 @@ def delete_purchase_order(order_id: int, db: Session = Depends(get_db), current_
         raise HTTPException(status_code=400, detail="已有入库记录的订单不能删除")
 
     # 已有商品下单给供应商，不能删除
-    has_ordered = any(item.purchase_status == "已下单" for item in db_order.items)
-    if has_ordered:
-        raise HTTPException(status_code=400, detail="已有商品下单给供应商，无法删除订单")
+    if db_order.purchase_status == "已下单":
+        raise HTTPException(status_code=400, detail="已下单给供应商，无法删除订单")
 
     db.delete(db_order)
     db.commit()
@@ -372,28 +372,23 @@ def get_available_orders_for_purchase_invoice(
     return result
 
 
-@router.put("/{order_id}/items/{item_id}/purchase-status")
-def update_purchase_item_status(
+@router.put("/{order_id}/purchase-status")
+def update_purchase_order_status(
     order_id: int,
-    item_id: int,
     status_data: PurchaseStatusUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """修改采购明细的采购状态"""
+    """修改采购订单的采购状态"""
     # 验证采购订单存在
     order = db.query(PurchaseOrder).filter(PurchaseOrder.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="采购订单不存在")
 
-    # 验证明细存在
-    item = db.query(PurchaseOrderItem).filter(PurchaseOrderItem.id == item_id).first()
-    if not item:
-        raise HTTPException(status_code=404, detail="采购明细不存在")
-
-    # 验证明细属于该订单
-    if item.order_id != order_id:
-        raise HTTPException(status_code=400, detail="采购明细不属于该订单")
+    # 已有入库记录的订单不能修改采购状态
+    has_received = any(item.received_quantity > 0 for item in order.items)
+    if has_received:
+        raise HTTPException(status_code=400, detail="已有入库记录的订单不能修改采购状态")
 
     # 验证状态值
     valid_statuses = ["待下单", "待确认", "已下单"]
@@ -401,10 +396,10 @@ def update_purchase_item_status(
         raise HTTPException(status_code=400, detail=f"无效的状态值，有效值为：{', '.join(valid_statuses)}")
 
     # 更新状态
-    item.purchase_status = status_data.purchase_status
+    order.purchase_status = status_data.purchase_status
 
     db.commit()
-    return {"message": "状态更新成功", "purchase_status": item.purchase_status}
+    return {"message": "状态更新成功", "purchase_status": order.purchase_status}
 
 
 @router.post("/{order_id}/receive")
@@ -424,6 +419,13 @@ def receive_purchase_order(
     if order.status == "已完成":
         raise HTTPException(status_code=400, detail="已完成的订单无法入库")
 
+    # 检查采购状态：必须为「已下单」
+    if order.purchase_status != "已下单":
+        raise HTTPException(
+            status_code=400,
+            detail=f"采购订单状态为「{order.purchase_status}」，尚未下单给供应商，无法入库"
+        )
+
     for receive_item in receive_data.items:
         order_item_id = receive_item.get("order_item_id")
         received_quantity = receive_item.get("received_quantity", 0)
@@ -435,14 +437,6 @@ def receive_purchase_order(
         item = db.query(PurchaseOrderItem).filter(PurchaseOrderItem.id == order_item_id).first()
         if not item:
             raise HTTPException(status_code=404, detail=f"采购明细 {order_item_id} 不存在")
-
-        # 约束检查：采购状态必须为「已下单」
-        if item.purchase_status != "已下单":
-            product_name = db.query(Product.name).filter(Product.id == item.product_id).scalar() or f"商品{item.product_id}"
-            raise HTTPException(
-                status_code=400,
-                detail=f"商品「{product_name}」采购状态为「{item.purchase_status}」，尚未下单给供应商，无法入库"
-            )
 
         # 检查数量
         unreceived_quantity = item.quantity - item.received_quantity
@@ -521,6 +515,7 @@ def create_purchase_orders_batch(
             supplier_id=group.supplier_id,
             purchaser_id=current_user.id,
             total_amount=total_amount,
+            source_sales_order_id=sales_order_id,
             remark=group.remark or batch_data.remark or f"从销售订单 SO-{sales_order_id} 生成"
         )
         db.add(db_order)
@@ -534,9 +529,7 @@ def create_purchase_orders_batch(
                 quantity=item.quantity,
                 unit_price=item.unit_price,
                 received_quantity=0,
-                line_total=item.quantity * item.unit_price,
-                source_sales_order_id=sales_order_id,
-                purchase_status=item.purchase_status or "待下单"
+                line_total=item.quantity * item.unit_price
             )
             db.add(db_item)
 
