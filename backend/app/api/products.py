@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from app.database import get_db
 from app.models import Product, Supplier, User
 from app.schemas import ProductCreate, ProductUpdate, ProductResponse
-from app.utils import get_current_user
+from app.utils import get_current_user, format_datetime_cst
 
 router = APIRouter()
 
@@ -63,7 +63,7 @@ def get_products(
         query = query.filter(Product.retail_price <= max_price)
 
     total = query.count()
-    products = query.offset(skip).limit(limit).all()
+    products = query.order_by(Product.created_at.desc()).offset(skip).limit(limit).all()
 
     # 转换结果以包含 supplier_name
     result = []
@@ -79,7 +79,7 @@ def get_products(
             "retail_price": p.retail_price,
             "supplier_id": p.supplier_id,
             "supplier_name": p.supplier.name if p.supplier else None,
-            "created_at": p.created_at
+            "created_at": format_datetime_cst(p.created_at)
         }
         result.append(item)
 
@@ -102,7 +102,7 @@ def get_product(product_id: int, db: Session = Depends(get_db), current_user: Us
         "retail_price": product.retail_price,
         "supplier_id": product.supplier_id,
         "supplier_name": product.supplier.name if product.supplier else None,
-        "created_at": product.created_at
+        "created_at": format_datetime_cst(product.created_at)
     }
 
 
@@ -139,7 +139,7 @@ def create_product(product: ProductCreate, db: Session = Depends(get_db), curren
         "retail_price": db_product.retail_price,
         "supplier_id": db_product.supplier_id,
         "supplier_name": db_product.supplier.name if db_product.supplier else None,
-        "created_at": db_product.created_at
+        "created_at": format_datetime_cst(db_product.created_at)
     }
 
 
@@ -185,7 +185,7 @@ def update_product(product_id: int, product: ProductUpdate, db: Session = Depend
         "retail_price": db_product.retail_price,
         "supplier_id": db_product.supplier_id,
         "supplier_name": db_product.supplier.name if db_product.supplier else None,
-        "created_at": db_product.created_at
+        "created_at": format_datetime_cst(db_product.created_at)
     }
 
 

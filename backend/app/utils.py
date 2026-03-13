@@ -1,6 +1,6 @@
 from passlib.context import CryptContext
 from jose import JWTError, jwt
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
@@ -13,7 +13,10 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 SECRET_KEY = "your-secret-key-change-in-production"
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7天
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 天
+
+# 东八区中国时间
+CST_TIMEZONE = timezone(timedelta(hours=8))
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
@@ -48,3 +51,12 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     if user is None:
         raise credentials_exception
     return user
+
+def format_datetime_cst(dt: Optional[datetime]) -> Optional[str]:
+    """将 datetime 转换为东八区中国时间的 ISO 格式字符串"""
+    if dt is None:
+        return None
+    # 如果 datetime 没有时区信息，假设为 UTC
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(CST_TIMEZONE).isoformat()

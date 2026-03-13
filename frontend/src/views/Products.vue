@@ -83,8 +83,8 @@
       </el-row>
     </div>
 
-    <el-table :data="products" style="width: 100%" v-loading="loading" :default-sort="{ prop: 'id', order: 'ascending' }">
-      <el-table-column prop="id" label="ID" width="70" sortable />
+    <el-table :data="products" style="width: 100%" v-loading="loading" :default-sort="{ prop: 'created_at', order: 'descending' }">
+      <el-table-column prop="id" label="ID" width="100" sortable />
       <el-table-column prop="name" label="商品名称" min-width="150" show-overflow-tooltip />
       <el-table-column prop="model" label="型号" width="160" show-overflow-tooltip />
       <el-table-column prop="brand" label="品牌" width="100" show-overflow-tooltip />
@@ -105,6 +105,11 @@
         </template>
       </el-table-column>
       <el-table-column prop="supplier_name" label="供应商" width="180" show-overflow-tooltip />
+      <el-table-column prop="created_at" label="创建时间" width="160" sortable>
+        <template #default="{ row }">
+          {{ formatDate(row.created_at) }}
+        </template>
+      </el-table-column>
       <el-table-column label="操作" width="150" fixed="right">
         <template #default="{ row }">
           <el-button size="small" link @click="handleCopy(row)">复制</el-button>
@@ -240,6 +245,15 @@ const rules = {
 const formatPrice = (price) => {
   if (price === null || price === undefined) return '0.00'
   return typeof price === 'number' ? price.toFixed(2) : parseFloat(price || 0).toFixed(2)
+}
+
+const formatDate = (dateStr) => {
+  if (!dateStr) return ''
+  const date = new Date(dateStr)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
 // 加载供应商列表
