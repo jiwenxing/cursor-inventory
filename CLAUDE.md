@@ -17,9 +17,9 @@ python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 
-# 初始化数据库（选择其一）
-python3 init_base_data.py       # 仅基础数据：客户、供应商、商品、库存
-python3 init_db.py              # 完整数据：含销售订单、采购订单、发票
+# 初始化数据库（按顺序执行）
+python3 init_db.py              # 1. 创建表和管理员账号
+python3 init_test_data.py       # 2. 生成测试数据（客户、供应商、商品）
 
 # 启动服务
 uvicorn main:app --reload --port 8000
@@ -37,8 +37,22 @@ npm run dev
 python3 reset_base_data.py
 
 # 完全重置（删除所有数据重新生成）
-rm data/app.db && python3 init_db.py
+rm data/app.db && python3 init_db.py && python3 init_test_data.py
 ```
+
+### 测试数据
+
+测试数据生成逻辑已集中到 `test_data.py` 模块中，包含：
+- `generate_base_data()` - 生成客户、供应商、商品、库存
+- `generate_customers()` - 生成客户数据
+- `generate_suppliers()` - 生成供应商数据
+- `generate_products()` - 生成商品数据
+- `generate_initial_inventory()` - 生成初始库存
+
+相关脚本：
+- `init_db.py` - 仅创建表和管理员账号（生产初始化）
+- `init_test_data.py` - 生成测试数据（客户、供应商、商品）
+- `reset_base_data.py` - 重置并生成测试数据（含初始库存）
 
 ## 开发规范
 
@@ -71,13 +85,6 @@ rm data/app.db && python3 init_db.py
 - 收款记录表：`payment_records`
 - 订单表增加 `paid_amount` 字段记录已付金额
 - 删除收款记录时自动重新计算订单付款状态
-
-### 数据库迁移
-```bash
-# 添加收款功能
-python3 migrate_payment.py
-```
-
 
 
 
