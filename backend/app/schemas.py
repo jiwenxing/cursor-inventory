@@ -193,6 +193,9 @@ class InventoryRecordResponse(BaseModel):
     product_id: int
     product_name: Optional[str] = None
     product_model: Optional[str] = None
+    product_brand: Optional[str] = None
+    supplier_id: Optional[int] = None
+    supplier_name: Optional[str] = None
     type: str
     quantity: float
     related_order_id: Optional[int] = None
@@ -205,6 +208,9 @@ class InventorySummaryResponse(BaseModel):
     product_id: int
     product_name: Optional[str] = None
     product_model: Optional[str] = None
+    product_brand: Optional[str] = None
+    supplier_id: Optional[int] = None
+    supplier_name: Optional[str] = None
     current_stock: float
 
     class Config:

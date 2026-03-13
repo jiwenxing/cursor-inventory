@@ -19,6 +19,9 @@ def get_inventory_summary(db: Session = Depends(get_db), current_user: User = De
             "product_id": summary.product_id,
             "product_name": summary.product.name,
             "product_model": summary.product.model,
+            "product_brand": summary.product.brand,
+            "supplier_id": summary.product.supplier_id,
+            "supplier_name": summary.product.supplier.name if summary.product.supplier else None,
             "current_stock": summary.current_stock
         })
     return result
@@ -49,6 +52,9 @@ def get_inventory_records(
             "product_id": record.product_id,
             "product_name": record.product.name if record.product else None,
             "product_model": record.product.model if record.product else None,
+            "product_brand": record.product.brand if record.product else None,
+            "supplier_id": record.product.supplier_id if record.product else None,
+            "supplier_name": record.product.supplier.name if record.product and record.product.supplier else None,
             "type": record.type,
             "quantity": record.quantity,
             "related_order_id": record.related_order_id,
@@ -135,6 +141,9 @@ def create_inventory_in(
         "product_id": db_record.product_id,
         "product_name": product.name,
         "product_model": product.model,
+        "product_brand": product.brand,
+        "supplier_id": product.supplier_id,
+        "supplier_name": product.supplier.name if product.supplier else None,
         "type": db_record.type,
         "quantity": db_record.quantity,
         "related_order_id": db_record.related_order_id,

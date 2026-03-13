@@ -26,7 +26,7 @@
     </div>
 
     <el-table :data="suppliers" style="width: 100%" v-loading="loading" :default-sort="{ prop: 'id', order: 'descending' }">
-      <el-table-column prop="id" label="ID" width="70" sortable />
+      <el-table-column prop="id" label="ID" width="100" sortable />
       <el-table-column prop="name" label="供应商名称" min-width="150" show-overflow-tooltip />
       <el-table-column prop="contact" label="联系人" width="100" show-overflow-tooltip />
       <el-table-column prop="phone" label="电话" width="140" />

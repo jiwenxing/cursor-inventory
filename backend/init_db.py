@@ -1,26 +1,26 @@
 """
 初始化数据库脚本
 创建管理员账号
-生成测试数据
+生成基础测试数据：客户、供应商、商品、初始库存
 """
 from sqlalchemy import text
 from app.database import SessionLocal, engine, Base
-from app.models import User, Customer, Supplier, Product, SalesOrder, SalesOrderItem, InventoryRecord, InventorySummary, Invoice, InvoiceItem, PurchaseOrder, PurchaseOrderItem
+from app.models import User, Customer, Supplier, Product, InventoryRecord, InventorySummary
 from app.utils import get_password_hash
-from datetime import datetime, timedelta
-import random
+from datetime import datetime
 
 
-# 所有需要设置起始ID的表
+# 所有需要设置起始 ID 的表
 AUTOINCREMENT_TABLES = [
     "users", "customers", "suppliers", "products",
     "sales_orders", "sales_order_items", "inventory_records",
     "import_error_logs", "invoices", "invoice_items",
-    "purchase_orders", "purchase_order_items", "purchase_invoice_items"
+    "purchase_orders", "purchase_order_items", "purchase_invoice_items",
+    "inventory_summary"
 ]
 
-# ID起始值
-ID_START_VALUE = 12599999
+# ID 起始值
+ID_START_VALUE = 26030000
 
 
 def init_db():
@@ -30,6 +30,12 @@ def init_db():
 
     db = SessionLocal()
     try:
+        # 先在插入任何数据之前设置所有表的起始 ID
+        # 这样可以确保第一次插入时就使用指定的起始值
+        for table_name in AUTOINCREMENT_TABLES:
+            db.execute(text(f"INSERT OR REPLACE INTO sqlite_sequence (name, seq) VALUES ('{table_name}', {ID_START_VALUE - 1})"))
+        db.commit()
+
         # 检查是否已有管理员
         admin = db.query(User).filter(User.username == "admin").first()
         if not admin:
@@ -44,25 +50,18 @@ def init_db():
         else:
             print("✓ 管理员账号已存在")
 
-        # 检查是否已有数据
+        # 检查是否已有基础数据
         if db.query(Customer).first():
             print("✓ 数据库已有数据，跳过测试数据生成")
-            # 仍然设置ID起始值
-            for table_name in AUTOINCREMENT_TABLES:
-                db.execute(text(f"UPDATE sqlite_sequence SET seq = {ID_START_VALUE} WHERE name = '{table_name}'"))
             db.commit()
             return
 
-        # 生成测试数据
-        generate_test_data(db)
+        # 生成基础测试数据
+        generate_base_data(db)
 
         db.commit()
 
-        # 设置所有自增表的起始ID（确保下一个ID从12600000开始）
-        for table_name in AUTOINCREMENT_TABLES:
-            db.execute(text(f"UPDATE sqlite_sequence SET seq = {ID_START_VALUE} WHERE name = '{table_name}'"))
-        db.commit()
-        print(f"✓ 设置所有表ID起始值为 {ID_START_VALUE}")
+        print(f"✓ 所有表 ID 起始值已设置为 {ID_START_VALUE}")
 
     except Exception as e:
         print(f"✗ 初始化失败：{e}")
@@ -71,274 +70,109 @@ def init_db():
         db.close()
 
 
-def generate_test_data(db):
-    """生成测试数据"""
-    print("\n开始生成测试数据...")
+def generate_base_data(db):
+    """生成基础测试数据"""
+    print("\n开始生成基础测试数据...")
 
-    # 1. 创建客户
-    customers = [
-        Customer(name="杭州华为科技有限公司", contact="张经理", phone="13800138001", email="zhang@huawei.com", address="杭州市西湖区"),
-        Customer(name="宁波吉利汽车", contact="李总", phone="13800138002", email="li@geely.com", address="宁波市北仑区"),
-        Customer(name="温州正泰电器", contact="王主任", phone="13800138003", email="wang@chint.com", address="温州市乐清市"),
-        Customer(name="绍兴海亮集团", contact="刘经理", phone="13800138004", email="liu@hangliang.com", address="绍兴市诸暨市"),
-        Customer(name="金华绿源电动车", contact="陈总", phone="13800138005", email="chen@lvyuan.com", address="金华市婺城区"),
-        Customer(name="台州星星集团", contact="周经理", phone="13800138006", email="zhou@xingxing.com", address="台州市椒江区"),
-        Customer(name="嘉兴梦迪集团", contact="吴总", phone="13800138007", email="wu@mengdi.com", address="嘉兴市秀洲区"),
-        Customer(name="湖州久盛电气", contact="郑工", phone="13800138008", email="zheng@jiusheng.com", address="湖州市南浔区"),
+    now = datetime.now()
+
+    # 1. 使用原生 SQL 插入客户（避免 SQLAlchemy flush 导致 sqlite_sequence 被覆盖）
+    customers_data = [
+        (ID_START_VALUE, "杭州华为科技有限公司", "张经理", "13800138001", "zhang@huawei.com", "杭州市西湖区"),
+        (ID_START_VALUE + 1, "宁波吉利汽车", "李总", "13800138002", "li@geely.com", "宁波市北仑区"),
+        (ID_START_VALUE + 2, "温州正泰电器", "王主任", "13800138003", "wang@chint.com", "温州市乐清市"),
+        (ID_START_VALUE + 3, "绍兴海亮集团", "刘经理", "13800138004", "liu@hangliang.com", "绍兴市诸暨市"),
+        (ID_START_VALUE + 4, "金华绿源电动车", "陈总", "13800138005", "chen@lvyuan.com", "金华市婺城区"),
+        (ID_START_VALUE + 5, "台州星星集团", "周经理", "13800138006", "zhou@xingxing.com", "台州市椒江区"),
+        (ID_START_VALUE + 6, "嘉兴梦迪集团", "吴总", "13800138007", "wu@mengdi.com", "嘉兴市秀洲区"),
+        (ID_START_VALUE + 7, "湖州久盛电气", "郑工", "13800138008", "zheng@jiusheng.com", "湖州市南浔区"),
     ]
-    for c in customers:
-        db.add(c)
-    db.flush()
-    print(f"✓ 创建 {len(customers)} 个客户")
-
-    # 2. 创建供应商
-    suppliers = [
-        Supplier(name="上海电气集团", contact="张经理", phone="021-12345678", email="shanghai@electric.com", address="上海市"),
-        Supplier(name="苏州精密机械厂", contact="李工", phone="0512-87654321", email="suzhou@precision.com", address="苏州市"),
-        Supplier(name="南京自动化公司", contact="王总", phone="025-11112222", email="nanjing@auto.com", address="南京市"),
-    ]
-    for s in suppliers:
-        db.add(s)
-    db.flush()
-    print(f"✓ 创建 {len(suppliers)} 个供应商")
-
-    # 获取管理员用户（用于采购订单）
-    admin_user = db.query(User).filter(User.username == "admin").first()
-
-    # 2.5 创建采购订单
-    purchase_order_data = [
-        # 上海电气集团 - 2 个订单
-        {"supplier": suppliers[0], "days_ago": 30, "items": [(products[0], 50), (products[1], 30)], "status": "已完成"},
-        {"supplier": suppliers[0], "days_ago": 10, "items": [(products[6], 200), (products[7], 50)], "status": "部分入库"},
-
-        # 苏州精密机械厂 - 2 个订单
-        {"supplier": suppliers[1], "days_ago": 25, "items": [(products[2], 40), (products[3], 60)], "status": "已完成"},
-        {"supplier": suppliers[1], "days_ago": 5, "items": [(products[8], 100), (products[4], 30)], "status": "待入库"},
-
-        # 南京自动化公司 - 1 个订单
-        {"supplier": suppliers[2], "days_ago": 15, "items": [(products[5], 150), (products[9], 300)], "status": "部分入库"},
-    ]
-
-    for po_data in purchase_order_data:
-        order_date = datetime.now() - timedelta(days=po_data["days_ago"])
-
-        # 计算订单总金额
-        total = 0
-        order_items = []
-        for product, qty in po_data["items"]:
-            line_total = qty * product.purchase_price
-            total += line_total
-            order_items.append({
-                "product_id": product.id,
-                "quantity": qty,
-                "unit_price": product.purchase_price,
-                "line_total": line_total
-            })
-
-        # 创建采购订单
-        order = PurchaseOrder(
-            order_date=order_date,
-            supplier_id=po_data["supplier"].id,
-            purchaser_id=admin_user.id,
-            total_amount=total,
-            status=po_data["status"]
-        )
-        db.add(order)
-        db.flush()
-
-        # 创建订单明细
-        for item_data in order_items:
-            # 根据状态计算已入库数量
-            if po_data["status"] == "已完成":
-                received = item_data["quantity"]
-            elif po_data["status"] == "部分入库":
-                received = int(item_data["quantity"] * 0.6)  # 60% 已入库
-            else:
-                received = 0
-
-            item = PurchaseOrderItem(
-                order_id=order.id,
-                product_id=item_data["product_id"],
-                quantity=item_data["quantity"],
-                unit_price=item_data["unit_price"],
-                received_quantity=received,
-                line_total=item_data["line_total"]
-            )
-            db.add(item)
-
-            # 如果已入库，创建入库记录
-            if received > 0:
-                record = InventoryRecord(
-                    product_id=item_data["product_id"],
-                    type="IN",
-                    quantity=received,
-                    related_order_id=order.id,
-                    related_order_type="purchase"
-                )
-                db.add(record)
-
-                # 更新库存汇总
-                summary = db.query(InventorySummary).filter(InventorySummary.product_id == item_data["product_id"]).first()
-                if summary:
-                    summary.current_stock += received
-
+    for data in customers_data:
+        db.execute(text("""
+            INSERT INTO customers (id, name, contact, phone, email, address, created_at)
+            VALUES (:id, :name, :contact, :phone, :email, :address, :created_at)
+        """), {
+            "id": data[0],
+            "name": data[1],
+            "contact": data[2],
+            "phone": data[3],
+            "email": data[4],
+            "address": data[5],
+            "created_at": now
+        })
     db.commit()
-    print(f"✓ 创建 {len(purchase_order_data)} 个采购订单")
+    print(f"✓ 创建 {len(customers_data)} 个客户")
 
-    # 3. 创建商品
-    products = [
-        Product(name="变频器", model="VFD-A", brand="松下", unit="台", tax_rate=0.13, purchase_price=800, retail_price=1200, supplier_id=suppliers[0].id),
-        Product(name="PLC控制器", model="PLC-200", brand="西门子", unit="台", tax_rate=0.13, purchase_price=2500, retail_price=3800, supplier_id=suppliers[0].id),
-        Product(name="伺服电机", model="SM-100", brand="安川", unit="台", tax_rate=0.13, purchase_price=1500, retail_price=2200, supplier_id=suppliers[1].id),
-        Product(name="触摸屏", model="HMI-7", brand="威纶", unit="台", tax_rate=0.13, purchase_price=600, retail_price=950, supplier_id=suppliers[1].id),
-        Product(name="减速机", model="NMRV-30", brand="台邦", unit="台", tax_rate=0.13, purchase_price=400, retail_price=650, supplier_id=suppliers[2].id),
-        Product(name="传感器", model="GZ-001", brand="倍加福", unit="个", tax_rate=0.13, purchase_price=80, retail_price=150, supplier_id=suppliers[2].id),
-        Product(name="继电器", model="MY2N", brand="欧姆龙", unit="个", tax_rate=0.13, purchase_price=15, retail_price=28, supplier_id=suppliers[0].id),
-        Product(name="断路器", model="NSX-100", brand="施耐德", unit="个", tax_rate=0.13, purchase_price=350, retail_price=520, supplier_id=suppliers[1].id),
-        Product(name="接触器", model="LC1D32", brand="施耐德", unit="个", tax_rate=0.13, purchase_price=120, retail_price=190, supplier_id=suppliers[1].id),
-        Product(name="按钮开关", model="XB2-EA", brand="施耐德", unit="个", tax_rate=0.13, purchase_price=8, retail_price=15, supplier_id=suppliers[2].id),
+    # 2. 使用原生 SQL 插入供应商
+    suppliers_data = [
+        (ID_START_VALUE, "上海电气集团", "张经理", "021-12345678", "shanghai@electric.com", "上海市"),
+        (ID_START_VALUE + 1, "苏州精密机械厂", "李工", "0512-87654321", "suzhou@precision.com", "苏州市"),
+        (ID_START_VALUE + 2, "南京自动化公司", "王总", "025-11112222", "nanjing@auto.com", "南京市"),
     ]
-    for p in products:
-        db.add(p)
-    db.flush()
-    print(f"✓ 创建 {len(products)} 个商品")
-
-    # 创建入库记录（增加库存）
-    for p in products:
-        # 每种商品入库100个
-        record = InventoryRecord(
-            product_id=p.id,
-            type="IN",
-            quantity=100,
-            related_order_id=None
-        )
-        db.add(record)
-
-        # 更新库存汇总
-        summary = InventorySummary(product_id=p.id, current_stock=100)
-        db.add(summary)
-    db.flush()
-    print(f"✓ 创建库存记录（每种商品100件）")
-
-    # 4. 创建销售订单和发票
-    order_data = [
-        # 杭州华为科技 - 3个订单，部分已开票
-        {"customer": customers[0], "days_ago": 60, "payment_status": "已付款", "items": [(products[0], 5), (products[1], 2)], "discount": 0.05},
-        {"customer": customers[0], "days_ago": 30, "payment_status": "部分付款", "items": [(products[2], 3), (products[3], 4)], "discount": 0},
-        {"customer": customers[0], "days_ago": 5, "payment_status": "未付款", "items": [(products[4], 6)], "discount": 0.1},
-
-        # 宁波吉利汽车 - 2个订单
-        {"customer": customers[1], "days_ago": 45, "payment_status": "已付款", "items": [(products[5], 20), (products[6], 50)], "discount": 0.08},
-        {"customer": customers[1], "days_ago": 10, "payment_status": "未付款", "items": [(products[7], 8), (products[8], 15)], "discount": 0},
-
-        # 温州正泰电器 - 2个订单
-        {"customer": customers[2], "days_ago": 20, "payment_status": "部分付款", "items": [(products[0], 10), (products[2], 5)], "discount": 0.03},
-        {"customer": customers[2], "days_ago": 3, "payment_status": "未付款", "items": [(products[9], 100)], "discount": 0},
-
-        # 绍兴海亮集团 - 1个订单
-        {"customer": customers[3], "days_ago": 15, "payment_status": "已付款", "items": [(products[1], 3), (products[3], 2), (products[4], 4)], "discount": 0.1},
-
-        # 金华绿源电动车 - 1个订单
-        {"customer": customers[4], "days_ago": 7, "payment_status": "未付款", "items": [(products[5], 30)], "discount": 0.05},
-    ]
-
-    invoices_created = []
-
-    for i, data in enumerate(order_data):
-        order_date = datetime.now() - timedelta(days=data["days_ago"])
-
-        # 计算订单金额
-        total = 0
-        order_items = []
-        for product, qty in data["items"]:
-            final_price = product.retail_price * (1 - data["discount"])
-            line_total = qty * final_price
-            total += line_total
-            order_items.append({
-                "product_id": product.id,
-                "quantity": qty,
-                "unit_price_tax": product.retail_price,
-                "discount_rate": data["discount"],
-                "final_unit_price_tax": final_price,
-                "line_total": line_total,
-                "shipped_quantity": 0,
-                "unshipped_quantity": qty
-            })
-
-        # 创建订单
-        order = SalesOrder(
-            order_date=order_date,
-            customer_id=data["customer"].id,
-            salesperson_id=admin_user.id,
-            contract_amount=total,
-            payment_status=data["payment_status"],
-            total_amount=total
-        )
-        db.add(order)
-        db.flush()
-
-        # 创建订单明细
-        for item_data in order_items:
-            item = SalesOrderItem(order_id=order.id, **item_data)
-            db.add(item)
-
-            # 减少库存
-            record = InventoryRecord(
-                product_id=item_data["product_id"],
-                type="OUT",
-                quantity=item_data["quantity"],
-                related_order_id=order.id
-            )
-            db.add(record)
-
-        # 更新库存汇总
-        for item_data in order_items:
-            summary = db.query(InventorySummary).filter(InventorySummary.product_id == item_data["product_id"]).first()
-            if summary:
-                summary.current_stock -= item_data["quantity"]
-
-        # 根据时间决定是否开票
-        if data["days_ago"] >= 20:
-            # 创建发票（模拟部分开票或全部开票）
-            invoiced_ratio = random.choice([0.5, 0.8, 1.0])  # 50%, 80%, 100% 开票
-            invoice_amount = total * invoiced_ratio
-            tax_amount = invoice_amount * 0.13
-
-            # 生成发票号
-            invoice_no = f"INV{datetime.now().strftime('%Y%m%d')}{i+1:04d}"
-
-            invoice = Invoice(
-                invoice_no=invoice_no,
-                invoice_date=order_date + timedelta(days=random.randint(1, 5)),
-                customer_id=data["customer"].id,
-                total_amount=invoice_amount,
-                tax_amount=tax_amount,
-                status="已开票",
-                created_by=admin_user.id
-            )
-            db.add(invoice)
-            db.flush()
-
-            # 创建发票明细
-            invoice_item = InvoiceItem(
-                invoice_id=invoice.id,
-                order_id=order.id,
-                order_no=order.id,
-                amount=invoice_amount,
-                tax_amount=tax_amount
-            )
-            db.add(invoice_item)
-            invoices_created.append(invoice)
-
+    for data in suppliers_data:
+        db.execute(text("""
+            INSERT INTO suppliers (id, name, contact, phone, email, address, created_at)
+            VALUES (:id, :name, :contact, :phone, :email, :address, :created_at)
+        """), {
+            "id": data[0],
+            "name": data[1],
+            "contact": data[2],
+            "phone": data[3],
+            "email": data[4],
+            "address": data[5],
+            "created_at": now
+        })
     db.commit()
-    print(f"✓ 创建 {len(order_data)} 个销售订单")
-    print(f"✓ 创建 {len(invoices_created)} 张发票")
-    print("\n✓ 测试数据生成完成！")
-    print(f"  - 客户：{len(customers)} 个")
-    print(f"  - 供应商：{len(suppliers)} 个")
-    print(f"  - 商品：{len(products)} 个")
-    print(f"  - 销售订单：{len(order_data)} 个")
-    print(f"  - 发票：{len(invoices_created)} 张")
+    print(f"✓ 创建 {len(suppliers_data)} 个供应商")
+
+    # 3. 使用原生 SQL 插入商品
+    products_data = [
+        (ID_START_VALUE, "变频器", "VFD-A", "松下", "台", 0.13, 800, 1200, suppliers_data[0][0]),
+        (ID_START_VALUE + 1, "PLC 控制器", "PLC-200", "西门子", "台", 0.13, 2500, 3800, suppliers_data[0][0]),
+        (ID_START_VALUE + 2, "伺服电机", "SM-100", "安川", "台", 0.13, 1500, 2200, suppliers_data[1][0]),
+        (ID_START_VALUE + 3, "触摸屏", "HMI-7", "威纶", "台", 0.13, 600, 950, suppliers_data[1][0]),
+        (ID_START_VALUE + 4, "减速机", "NMRV-30", "台邦", "台", 0.13, 400, 650, suppliers_data[2][0]),
+        (ID_START_VALUE + 5, "传感器", "GZ-001", "倍加福", "个", 0.13, 80, 150, suppliers_data[2][0]),
+        (ID_START_VALUE + 6, "继电器", "MY2N", "欧姆龙", "个", 0.13, 15, 28, suppliers_data[0][0]),
+        (ID_START_VALUE + 7, "断路器", "NSX-100", "施耐德", "个", 0.13, 350, 520, suppliers_data[1][0]),
+        (ID_START_VALUE + 8, "接触器", "LC1D32", "施耐德", "个", 0.13, 120, 190, suppliers_data[1][0]),
+        (ID_START_VALUE + 9, "按钮开关", "XB2-EA", "施耐德", "个", 0.13, 8, 15, suppliers_data[2][0]),
+    ]
+    for data in products_data:
+        db.execute(text("""
+            INSERT INTO products (id, name, model, brand, unit, tax_rate, purchase_price, retail_price, supplier_id, created_at)
+            VALUES (:id, :name, :model, :brand, :unit, :tax_rate, :purchase_price, :retail_price, :supplier_id, :created_at)
+        """), {
+            "id": data[0],
+            "name": data[1],
+            "model": data[2],
+            "brand": data[3],
+            "unit": data[4],
+            "tax_rate": data[5],
+            "purchase_price": data[6],
+            "retail_price": data[7],
+            "supplier_id": data[8],
+            "created_at": now
+        })
+    db.commit()
+    print(f"✓ 创建 {len(products_data)} 个商品")
+
+    # 4. 创建初始库存记录（初始库存为 0）
+    for i, p in enumerate(products_data):
+        db.execute(text("""
+            INSERT INTO inventory_summary (product_id, current_stock)
+            VALUES (:product_id, :current_stock)
+        """), {
+            "product_id": p[0],
+            "current_stock": 0
+        })
+    db.commit()
+    print(f"✓ 创建库存记录（每种商品初始库存为 0）")
+
+    print("\n✓ 基础测试数据生成完成！")
+    print(f"  - 客户：{len(customers_data)} 个")
+    print(f"  - 供应商：{len(suppliers_data)} 个")
+    print(f"  - 商品：{len(products_data)} 个")
 
 
 if __name__ == "__main__":

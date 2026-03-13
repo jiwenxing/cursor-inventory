@@ -119,7 +119,7 @@
           ¥{{ row.total_amount?.toFixed(2) }}
         </template>
       </el-table-column>
-      <el-table-column prop="purchase_status" label="采购状态" width="100">
+      <el-table-column prop="purchase_status" label="采购状态" width="120">
         <template #default="{ row }">
           <el-select
             v-model="row.purchase_status"
@@ -133,7 +133,7 @@
           </el-select>
         </template>
       </el-table-column>
-      <el-table-column label="来源订单" width="100">
+      <el-table-column label="来源订单" width="120">
         <template #default="{ row }">
           <span v-if="row.source_sales_order_id" style="color: #409EFF">
             SO-{{ row.source_sales_order_id }}
@@ -141,7 +141,7 @@
           <span v-else style="color: #909399">-</span>
         </template>
       </el-table-column>
-      <el-table-column prop="status" label="入库状态" width="100">
+      <el-table-column prop="status" label="入库状态" width="120">
         <template #default="{ row }">
           <el-tag :type="row.status === '已完成' ? 'success' : row.status === '部分入库' ? 'warning' : 'info'" size="small">
             {{ row.status }}

@@ -10,6 +10,8 @@
         <el-table :data="summary" style="width: 100%" v-loading="loading">
           <el-table-column prop="product_name" label="商品名称" />
           <el-table-column prop="product_model" label="型号" />
+          <el-table-column prop="product_brand" label="品牌" width="100" />
+          <el-table-column prop="supplier_name" label="供应商" width="150" />
           <el-table-column prop="current_stock" label="当前库存">
             <template #default="{ row }">
               <span :style="{ color: row.current_stock < 0 ? 'red' : 'inherit' }">
@@ -23,7 +25,9 @@
       <el-tab-pane label="库存流水" name="records">
         <el-table :data="records" style="width: 100%" v-loading="loading">
           <el-table-column prop="product_name" label="商品名称" />
-          <el-table-column prop="product_model" label="型号" />
+          <el-table-column prop="product_model" label="型号" width="100" />
+          <el-table-column prop="product_brand" label="品牌" width="100" />
+          <el-table-column prop="supplier_name" label="供应商" width="120" />
           <el-table-column prop="type" label="类型" width="100">
             <template #default="{ row }">
               <el-tag :type="row.type === 'IN' ? 'success' : 'danger'">
@@ -31,7 +35,7 @@
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="quantity" label="数量" />
+          <el-table-column prop="quantity" label="数量" width="80" />
           <el-table-column prop="related_order_type" label="关联类型" width="100">
             <template #default="{ row }">
               <span v-if="row.related_order_type === 'purchase'">采购订单</span>

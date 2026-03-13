@@ -435,12 +435,12 @@
         <el-table :data="selectedInvoiceItems" style="width: 100%" max-height="300">
           <el-table-column prop="product_name" label="商品" show-overflow-tooltip />
           <el-table-column prop="product_model" label="型号" width="100" />
-          <el-table-column label="可开票数量" width="100" align="right">
+          <el-table-column label="可开票数量" width="120" align="right">
             <template #default="{ row }">
               {{ row.available_quantity }}
             </template>
           </el-table-column>
-          <el-table-column label="本次开票数量" width="140" align="center">
+          <el-table-column label="本次开票数量" width="160" align="center">
             <template #default="{ row, $index }">
               <el-input-number
                 v-model="row.invoice_quantity"
@@ -458,7 +458,7 @@
               ¥{{ (row.discounted_price_tax || 0).toFixed(2) }}
             </template>
           </el-table-column>
-          <el-table-column label="开票金额" width="110" align="right">
+          <el-table-column label="开票金额" width="130" align="right">
             <template #default="{ row }">
               <span style="color: #e6a23c; font-weight: bold;">¥{{ (row.invoice_amount || 0).toFixed(2) }}</span>
             </template>
@@ -603,7 +603,7 @@
           </template>
 
           <el-table :data="group.items" border style="width: 100%" size="small">
-            <el-table-column label="商品" min-width="150">
+            <el-table-column label="商品" min-width="120">
               <template #default="{ row }">
                 <div style="display: flex; align-items: center; gap: 8px;">
                   <el-checkbox
@@ -632,7 +632,7 @@
                 {{ row.suggested_quantity }}
               </template>
             </el-table-column>
-            <el-table-column label="采购数" width="90" align="center">
+            <el-table-column label="采购数" width="100" align="center">
               <template #default="{ row, $index }">
                 <el-input-number
                   v-model="row.purchase_quantity"
@@ -645,7 +645,7 @@
                 />
               </template>
             </el-table-column>
-            <el-table-column label="单价" width="90" align="center">
+            <el-table-column label="单价" width="130" align="center">
               <template #default="{ row, $index }">
                 <el-input-number
                   v-model="row.purchase_price"
@@ -653,11 +653,11 @@
                   :precision="2"
                   size="small"
                   controls-position="right"
-                  style="width: 80px"
+                  style="width: 110px"
                 />
               </template>
             </el-table-column>
-            <el-table-column label="金额" width="100" align="center">
+            <el-table-column label="金额" width="120" align="center">
               <template #default="{ row }">
                 <span style="color: #e6a23c; font-weight: bold;">
                   ¥{{ (row.purchase_quantity * row.purchase_price).toFixed(2) }}
