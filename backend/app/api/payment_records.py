@@ -133,6 +133,9 @@ def create_payment_record(
     )
     db.add(db_record)
 
+    # 先提交收款记录，确保写入数据库
+    db.flush()
+
     # 更新订单的付款状态和已付金额
     update_payment_status(order, db)
 
