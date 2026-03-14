@@ -367,7 +367,13 @@ def get_purchase_suggestions(order_id: int, db: Session = Depends(get_db), curre
         current_stock = inventory.current_stock if inventory else 0
 
         # 计算建议采购量
-        suggested_qty = max(0, item.quantity - current_stock)
+        # 注意：创建订单时已经扣减了库存，所以 current_stock 可能为负数
+        # 如果 current_stock 为负，说明库存已经被订单扣减，只需要补充订单对应的量
+        # 公式：建议采购量 = 销售数量 - max(0, 当前库存)
+        # 例如：销售 10 个，库存 -10，则建议采购 10 - 0 = 10
+        #      销售 10 个，库存 5，则建议采购 10 - 5 = 5
+        #      销售 10 个，库存 15，则建议采购 10 - 15 = 0
+        suggested_qty = max(0, item.quantity - max(0, current_stock))
 
         groups_dict[product.supplier_id].append({
             'product': product,

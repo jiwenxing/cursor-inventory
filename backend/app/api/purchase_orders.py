@@ -5,7 +5,7 @@ from sqlalchemy import func
 from typing import List, Optional
 from datetime import datetime
 from app.database import get_db
-from app.models import PurchaseOrder, PurchaseOrderItem, Product, Supplier, User, InventorySummary, PurchaseInvoiceItem, SalesOrder, PurchaseItemStatus
+from app.models import PurchaseOrder, PurchaseOrderItem, Product, Supplier, User, InventorySummary, PurchaseInvoiceItem, SalesOrder, PurchaseItemStatus, InventoryRecord
 from app.schemas import PurchaseOrderCreate, PurchaseOrderResponse, PaginatedPurchaseOrdersResponse, PurchaseOrderInvoiceInfo, PurchaseOrderCreateFromSalesOrder, PurchaseStatusUpdate, PurchaseOrderReceive, PurchaseOrderBatchCreate, PurchaseOrderGroupCreate
 from app.utils import get_current_user
 from app.timezone import to_cst_datetime
