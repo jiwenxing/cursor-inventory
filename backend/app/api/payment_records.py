@@ -7,6 +7,7 @@ from app.database import get_db
 from app.models import PaymentRecord, SalesOrder, User, PaymentMethod
 from app.schemas import PaymentRecordCreate, PaymentRecordResponse, PaymentRecordListResponse
 from app.utils import get_current_user
+from app.timezone import to_cst_datetime
 
 router = APIRouter()
 
@@ -40,12 +41,12 @@ def payment_record_to_dict(record: PaymentRecord, db: Session = None) -> dict:
         "order_paid_amount": order.paid_amount if order else None,
         "order_unpaid_amount": (order.total_amount - order.paid_amount) if order else None,
         "amount": record.amount,
-        "payment_date": record.payment_date,
+        "payment_date": to_cst_datetime(record.payment_date),
         "payment_method": record.payment_method,
         "remark": record.remark,
         "created_by": record.created_by,
         "creator_name": record.creator.name if record.creator else None,
-        "created_at": record.created_at
+        "created_at": to_cst_datetime(record.created_at)
     }
 
 

@@ -18,6 +18,7 @@ from app.models import (
 )
 from app.schemas import ImportResult, ImportErrorLogResponse
 from app.utils import get_current_user
+from app.timezone import to_cst_datetime
 from decimal import Decimal, ROUND_HALF_UP
 
 router = APIRouter()
@@ -582,14 +583,14 @@ async def import_excel(
         # 查询错误日志
         error_logs = db.query(ImportErrorLog).filter(ImportErrorLog.import_batch_id == batch_id).all()
         error_responses = [
-            ImportErrorLogResponse(
-                id=log.id,
-                import_batch_id=log.import_batch_id,
-                error_type=log.error_type,
-                error_message=log.error_message,
-                row_data=log.row_data,
-                created_at=log.created_at
-            )
+            {
+                "id": log.id,
+                "import_batch_id": log.import_batch_id,
+                "error_type": log.error_type,
+                "error_message": log.error_message,
+                "row_data": log.row_data,
+                "created_at": to_cst_datetime(log.created_at)
+            }
             for log in error_logs
         ]
 
@@ -620,13 +621,13 @@ def get_import_errors(batch_id: str, db: Session = Depends(get_db), current_user
     """获取导入错误日志"""
     errors = db.query(ImportErrorLog).filter(ImportErrorLog.import_batch_id == batch_id).all()
     return [
-        ImportErrorLogResponse(
-            id=error.id,
-            import_batch_id=error.import_batch_id,
-            error_type=error.error_type,
-            error_message=error.error_message,
-            row_data=error.row_data,
-            created_at=error.created_at
-        )
+        {
+            "id": error.id,
+            "import_batch_id": error.import_batch_id,
+            "error_type": error.error_type,
+            "error_message": error.error_message,
+            "row_data": error.row_data,
+            "created_at": to_cst_datetime(error.created_at)
+        }
         for error in errors
     ]

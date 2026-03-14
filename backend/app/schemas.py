@@ -2,6 +2,7 @@ from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional, List
 
+
 # 用户相关
 class UserCreate(BaseModel):
     username: str
@@ -12,6 +13,7 @@ class UserResponse(BaseModel):
     id: int
     username: str
     name: Optional[str]
+    created_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
@@ -124,6 +126,11 @@ class ProductResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class PaginatedProductsResponse(BaseModel):
+    items: List[ProductResponse]
+    total: int
 
 # 销售订单相关
 class SalesOrderItemCreate(BaseModel):

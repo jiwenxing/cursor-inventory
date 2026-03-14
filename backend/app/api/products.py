@@ -4,15 +4,11 @@ from typing import List, Optional
 from pydantic import BaseModel
 from app.database import get_db
 from app.models import Product, Supplier, User
-from app.schemas import ProductCreate, ProductUpdate, ProductResponse
-from app.utils import get_current_user, format_datetime_cst
+from app.schemas import ProductCreate, ProductUpdate, ProductResponse, PaginatedProductsResponse
+from app.utils import get_current_user
+from app.timezone import to_cst_datetime
 
 router = APIRouter()
-
-
-class PaginatedProductsResponse(BaseModel):
-    items: List[ProductResponse]
-    total: int
 
 
 @router.get("/", response_model=PaginatedProductsResponse)
@@ -52,7 +48,7 @@ def get_products(
     if brand:
         query = query.filter(Product.brand.ilike(f"%{brand}%"))
 
-    # 按供应商ID筛选
+    # 按供应商 ID 筛选
     if supplier_id is not None:
         query = query.filter(Product.supplier_id == supplier_id)
 
@@ -65,10 +61,10 @@ def get_products(
     total = query.count()
     products = query.order_by(Product.created_at.desc()).offset(skip).limit(limit).all()
 
-    # 转换结果以包含 supplier_name
+    # 手动转换为字典并处理时区
     result = []
     for p in products:
-        item = {
+        result.append({
             "id": p.id,
             "name": p.name,
             "model": p.model,
@@ -79,9 +75,8 @@ def get_products(
             "retail_price": p.retail_price,
             "supplier_id": p.supplier_id,
             "supplier_name": p.supplier.name if p.supplier else None,
-            "created_at": format_datetime_cst(p.created_at)
-        }
-        result.append(item)
+            "created_at": to_cst_datetime(p.created_at)
+        })
 
     return {"items": result, "total": total}
 
@@ -91,6 +86,7 @@ def get_product(product_id: int, db: Session = Depends(get_db), current_user: Us
     product = db.query(Product).options(joinedload(Product.supplier)).filter(Product.id == product_id).first()
     if not product:
         raise HTTPException(status_code=404, detail="商品不存在")
+
     return {
         "id": product.id,
         "name": product.name,
@@ -102,13 +98,13 @@ def get_product(product_id: int, db: Session = Depends(get_db), current_user: Us
         "retail_price": product.retail_price,
         "supplier_id": product.supplier_id,
         "supplier_name": product.supplier.name if product.supplier else None,
-        "created_at": format_datetime_cst(product.created_at)
+        "created_at": to_cst_datetime(product.created_at)
     }
 
 
 @router.post("/", response_model=ProductResponse)
 def create_product(product: ProductCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    # 检查品牌+型号联合唯一
+    # 检查品牌 + 型号联合唯一
     brand_value = product.brand or ""
     existing = db.query(Product).filter(
         Product.brand == brand_value,
@@ -139,7 +135,7 @@ def create_product(product: ProductCreate, db: Session = Depends(get_db), curren
         "retail_price": db_product.retail_price,
         "supplier_id": db_product.supplier_id,
         "supplier_name": db_product.supplier.name if db_product.supplier else None,
-        "created_at": format_datetime_cst(db_product.created_at)
+        "created_at": to_cst_datetime(db_product.created_at)
     }
 
 
@@ -149,7 +145,7 @@ def update_product(product_id: int, product: ProductUpdate, db: Session = Depend
     if not db_product:
         raise HTTPException(status_code=404, detail="商品不存在")
 
-    # 检查品牌+型号联合唯一（排除自身）
+    # 检查品牌 + 型号联合唯一（排除自身）
     update_data = product.dict(exclude_unset=True)
     new_brand = update_data.get('brand', db_product.brand) or ""
     new_model = update_data.get('model', db_product.model)
@@ -185,7 +181,7 @@ def update_product(product_id: int, product: ProductUpdate, db: Session = Depend
         "retail_price": db_product.retail_price,
         "supplier_id": db_product.supplier_id,
         "supplier_name": db_product.supplier.name if db_product.supplier else None,
-        "created_at": format_datetime_cst(db_product.created_at)
+        "created_at": to_cst_datetime(db_product.created_at)
     }
 
 

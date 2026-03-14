@@ -8,6 +8,7 @@ from app.database import get_db
 from app.models import Invoice, InvoiceItem, SalesOrder, SalesOrderItem, Customer, User, SalesOrderItemInvoice
 from app.schemas import InvoiceCreate, InvoiceResponse, PaginatedInvoicesResponse, OrderInvoiceInfo, OrderInvoiceSummary, SalesOrderItemForInvoice, InvoiceCreateFromOrder
 from app.utils import get_current_user
+from app.timezone import to_cst_datetime
 
 router = APIRouter()
 
@@ -93,7 +94,7 @@ def get_invoices(
         result.append({
             "id": inv.id,
             "invoice_no": inv.invoice_no,
-            "invoice_date": inv.invoice_date,
+            "invoice_date": to_cst_datetime(inv.invoice_date),
             "customer_id": inv.customer_id,
             "customer_name": inv.customer.name if inv.customer else None,
             "total_amount": inv.total_amount,
@@ -102,7 +103,7 @@ def get_invoices(
             "remark": inv.remark,
             "created_by": inv.created_by,
             "creator_name": inv.creator.name if inv.creator else None,
-            "created_at": inv.created_at,
+            "created_at": to_cst_datetime(inv.created_at),
             "items": [{
                 "id": item.id,
                 "invoice_id": item.invoice_id,
@@ -154,7 +155,7 @@ def get_invoice(invoice_id: int, db: Session = Depends(get_db), current_user: Us
             "invoice_id": item.invoice_id,
             "order_id": item.order_id,
             "order_no": item.order_no,
-            "order_date": order.order_date if order else None,
+            "order_date": to_cst_datetime(order.order_date) if order else None,
             "customer_name": order.customer.name if order and order.customer else None,
             "order_total_amount": order.total_amount if order else 0,
             "contract_amount": order.contract_amount if order else 0,
@@ -166,7 +167,7 @@ def get_invoice(invoice_id: int, db: Session = Depends(get_db), current_user: Us
     return {
         "id": invoice.id,
         "invoice_no": invoice.invoice_no,
-        "invoice_date": invoice.invoice_date,
+        "invoice_date": to_cst_datetime(invoice.invoice_date),
         "customer_id": invoice.customer_id,
         "customer_name": invoice.customer.name if invoice.customer else None,
         "total_amount": invoice.total_amount,
@@ -175,7 +176,7 @@ def get_invoice(invoice_id: int, db: Session = Depends(get_db), current_user: Us
         "remark": invoice.remark,
         "created_by": invoice.created_by,
         "creator_name": invoice.creator.name if invoice.creator else None,
-        "created_at": invoice.created_at,
+        "created_at": to_cst_datetime(invoice.created_at),
         "items": items_data
     }
 
@@ -406,7 +407,7 @@ def get_order_items_for_invoice(order_id: int, db: Session = Depends(get_db), cu
     return {
         "order_id": order.id,
         "order_no": order.id,
-        "order_date": order.order_date,
+        "order_date": to_cst_datetime(order.order_date),
         "customer_id": order.customer_id,
         "customer_name": order.customer.name if order.customer else None,
         "total_amount": order.total_amount,
@@ -434,7 +435,7 @@ def get_order_invoice_info(order_id: int, db: Session = Depends(get_db), current
     return {
         "order_id": order.id,
         "order_no": order.id,
-        "order_date": order.order_date,
+        "order_date": to_cst_datetime(order.order_date),
         "total_amount": order.total_amount,
         "invoiced_amount": invoiced_amount,
         "balance_amount": balance_amount
@@ -466,7 +467,7 @@ def get_available_orders_for_invoice(
             result.append({
                 "order_id": order.id,
                 "order_no": order.id,
-                "order_date": order.order_date,
+                "order_date": to_cst_datetime(order.order_date),
                 "total_amount": order.total_amount,
                 "invoiced_amount": invoiced_amount,
                 "balance_amount": balance_amount

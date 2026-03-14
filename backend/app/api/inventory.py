@@ -6,6 +6,7 @@ from app.database import get_db
 from app.models import InventoryRecord, InventorySummary, Product, User, PurchaseOrder, PurchaseOrderItem
 from app.schemas import InventoryRecordCreate, InventoryRecordResponse, InventorySummaryResponse
 from app.utils import get_current_user
+from app.timezone import to_cst_datetime
 
 router = APIRouter()
 
@@ -59,7 +60,7 @@ def get_inventory_records(
             "quantity": record.quantity,
             "related_order_id": record.related_order_id,
             "related_order_type": record.related_order_type,
-            "created_at": record.created_at
+            "created_at": to_cst_datetime(record.created_at)
         })
     return result
 
@@ -148,7 +149,7 @@ def create_inventory_in(
         "quantity": db_record.quantity,
         "related_order_id": db_record.related_order_id,
         "related_order_type": db_record.related_order_type,
-        "created_at": db_record.created_at
+        "created_at": to_cst_datetime(db_record.created_at)
     }
 
 
@@ -188,7 +189,7 @@ def get_pending_purchase_orders_for_receive(
         if items:  # 只返回有待入库商品的订单
             result.append({
                 "order_id": order.id,
-                "order_date": order.order_date,
+                "order_date": to_cst_datetime(order.order_date),
                 "supplier_id": order.supplier_id,
                 "supplier_name": order.supplier.name if order.supplier else None,
                 "status": order.status,

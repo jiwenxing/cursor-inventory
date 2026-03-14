@@ -8,6 +8,7 @@ from app.database import get_db
 from app.models import PurchaseOrder, PurchaseOrderItem, Product, Supplier, User, InventorySummary, PurchaseInvoiceItem, SalesOrder, PurchaseItemStatus
 from app.schemas import PurchaseOrderCreate, PurchaseOrderResponse, PaginatedPurchaseOrdersResponse, PurchaseOrderInvoiceInfo, PurchaseOrderCreateFromSalesOrder, PurchaseStatusUpdate, PurchaseOrderReceive, PurchaseOrderBatchCreate, PurchaseOrderGroupCreate
 from app.utils import get_current_user
+from app.timezone import to_cst_datetime
 
 router = APIRouter()
 
@@ -28,7 +29,7 @@ def order_to_dict(order: PurchaseOrder, db: Session = None) -> dict:
 
     return {
         "id": order.id,
-        "order_date": order.order_date,
+        "order_date": to_cst_datetime(order.order_date),
         "supplier_id": order.supplier_id,
         "supplier_name": order.supplier.name if order.supplier else None,
         "purchaser_id": order.purchaser_id,
@@ -38,7 +39,7 @@ def order_to_dict(order: PurchaseOrder, db: Session = None) -> dict:
         "purchase_status": order.purchase_status,  # 订单级别的采购状态
         "source_sales_order_id": source_sales_order_id,  # 订单级别的来源销售订单 ID
         "remark": order.remark,
-        "created_at": order.created_at,
+        "created_at": to_cst_datetime(order.created_at),
         "invoiced_amount": invoiced_amount,
         "balance_amount": balance_amount,
         "items": [{

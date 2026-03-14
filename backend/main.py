@@ -1,8 +1,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from datetime import datetime, date
 from app.api import auth, customers, suppliers, products, sales_orders, inventory, import_excel, statistics, invoices, purchase_orders, payment_records
 from app.database import engine, Base
+from app.timezone import to_cst_datetime
 import logging
+import json
 
 # 配置日志
 logging.basicConfig(
@@ -10,7 +14,33 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 
-app = FastAPI(title="进销存系统", version="1.0.0")
+
+class CustomJSONResponse(JSONResponse):
+    """自定义 JSON 响应，自动处理 datetime 时区转换"""
+    media_type = "application/json"
+
+    def render(self, content) -> bytes:
+        return json.dumps(
+            content,
+            ensure_ascii=False,
+            allow_nan=False,
+            indent=None,
+            separators=(",", ":"),
+            default=self._default_encoder,
+        ).encode("utf-8")
+
+    def _default_encoder(self, obj):
+        """自定义 JSON 编码器，处理 datetime 对象"""
+        if isinstance(obj, datetime):
+            return to_cst_datetime(obj)
+        raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
+
+
+app = FastAPI(
+    title="进销存系统",
+    version="1.0.0",
+    default_response_class=CustomJSONResponse,
+)
 
 # CORS配置
 app.add_middleware(
@@ -20,6 +50,28 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+class CustomJSONResponse(JSONResponse):
+    """自定义 JSON 响应，自动处理 datetime 时区转换"""
+    media_type = "application/json"
+
+    def render(self, content) -> bytes:
+        return json.dumps(
+            content,
+            ensure_ascii=False,
+            allow_nan=False,
+            indent=None,
+            separators=(",", ":"),
+            default=self._default_encoder,
+        ).encode("utf-8")
+
+    def _default_encoder(self, obj):
+        """自定义 JSON 编码器，处理 datetime 对象"""
+        if isinstance(obj, datetime):
+            return to_cst_datetime(obj)
+        raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
+
 
 # 注册路由
 app.include_router(auth.router, prefix="/api/auth", tags=["认证"])

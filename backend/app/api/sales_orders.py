@@ -8,6 +8,7 @@ from app.database import get_db
 from app.models import SalesOrder, SalesOrderItem, Product, Customer, User, InventoryRecord, InventorySummary, InvoiceItem, PaymentRecord, Supplier
 from app.schemas import SalesOrderCreate, SalesOrderResponse, SalesOrderItemResponse, PurchaseSuggestionResponse, PurchaseSuggestionItem, PurchaseSuggestionGroup
 from app.utils import get_current_user
+from app.timezone import to_cst_datetime
 
 router = APIRouter()
 
@@ -34,13 +35,13 @@ def order_to_dict(order: SalesOrder, db: Session = None) -> dict:
 
     return {
         "id": order.id,
-        "order_date": order.order_date,
+        "order_date": to_cst_datetime(order.order_date),
         "customer_id": order.customer_id,
         "customer_name": order.customer.name if order.customer else None,
         "salesperson_id": order.salesperson_id,
         "salesperson_name": order.salesperson.name if order.salesperson else None,
         "contract_no": order.contract_no,
-        "contract_date": order.contract_date,
+        "contract_date": to_cst_datetime(order.contract_date),
         "contract_amount": order.contract_amount,
         "payment_status": order.payment_status,
         "total_amount": order.total_amount,
@@ -48,7 +49,7 @@ def order_to_dict(order: SalesOrder, db: Session = None) -> dict:
         "unpaid_amount": unpaid_amount,
         "invoiced_amount": invoiced_amount,
         "balance_amount": balance_amount,
-        "created_at": order.created_at,
+        "created_at": to_cst_datetime(order.created_at),
         "items": [{
             "id": item.id,
             "product_id": item.product_id,
