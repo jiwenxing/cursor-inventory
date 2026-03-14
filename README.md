@@ -135,14 +135,26 @@ npm run dev
 
 ### 方式二：Docker部署（推荐用于生产）
 
-1. **初始化数据库**
 ```bash
-docker compose --profile init run --rm init-db
-```
+ # 1. 拉取最新代码
+ git pull
 
-2. **启动服务**
-```bash
-docker compose up -d
+ # 2. 重新构建镜像（确保使用最新代码），前端可能不需要
+ docker compose build
+
+ # 3. 初始化数据库（如果是全新部署）
+ docker compose --profile init run --rm init-db
+
+ # 4. 启动服务
+ docker compose up -d
+
+ # 5. 如果需要，执行迁移脚本
+ docker compose --profile init run --rm migrate-db
+
+ # 查看服务状态
+  docker compose ps
+ # 查看日志
+ docker compose logs -f
 ```
 
 3. **访问系统**
