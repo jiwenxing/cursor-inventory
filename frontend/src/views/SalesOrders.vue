@@ -131,16 +131,14 @@
           ¥{{ row.total_amount?.toFixed(2) }}
         </template>
       </el-table-column>
-      <el-table-column label="已开票" width="110">
+      <el-table-column label="已开票/可开票" width="160">
         <template #default="{ row }">
-          <span style="color: #909399;">¥{{ (row.invoiced_amount || 0).toFixed(2) }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="可开票" width="110">
-        <template #default="{ row }">
-          <span :style="{ color: (row.balance_amount || 0) > 0 ? '#67c23a' : '#909399' }">
-            ¥{{ (row.balance_amount || 0).toFixed(2) }}
-          </span>
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <span style="color: #67c23a;">已开票：¥{{ (row.invoiced_amount || 0).toFixed(2) }}</span>
+            <span :style="{ color: (row.balance_amount || 0) > 0 ? '#67c23a' : '#909399' }">
+              可开票：¥{{ (row.balance_amount || 0).toFixed(2) }}
+            </span>
+          </div>
         </template>
       </el-table-column>
       <el-table-column prop="payment_status" label="付款状态" width="110" />
